@@ -1,0 +1,21 @@
+# Pure Table
+
+> A gluten-free directory for Saudi Arabia: restaurants, cafes, bakeries, desserts, supermarkets, and home businesses with safe gluten-free options for people with celiac disease and gluten intolerance.
+
+Pure Table lists verified places, their cities and branches, gluten-free products, opening hours, and direct ordering links (HungerStation, Jahez, The Chefz, official websites). Content is available in Arabic and English.
+
+## Pages
+
+- [Home](/): Search gluten-free places by name, city, or category.
+- [About](/about): What Pure Table is and how listings are reviewed.
+- [Restaurants](/restaurants): Gluten-free friendly restaurants across Saudi Arabia.
+- [Cafes](/cafes): Cafes serving gluten-free drinks and food.
+- [Bakeries](/bakeries): Bakeries with gluten-free bread and pastries.
+- [Desserts](/desserts): Gluten-free dessert shops.
+- [Supermarkets](/supermarkets): Stores stocking gluten-free products.
+- [Home Businesses](/home-businesses): Home-based gluten-free makers.
+- [Contact](/contact): Get in touch or submit a place.
+
+## Optional
+
+- Business detail pages live at `/business/{slug}` and include city, address, hours, products, and ordering links.
