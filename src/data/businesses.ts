@@ -119,8 +119,8 @@ export type Business = {
   description_i18n?: I18nString;
   address: string;
   address_i18n?: I18nString;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   phone: string;
   whatsapp?: string | null;
   instagram?: string;
@@ -375,8 +375,8 @@ export function mapDbBusiness(
     },
     address: row.address ?? "",
     address_i18n: { en: row.address ?? "", ar: row.address_ar || row.address || "" },
-    lat: row.lat ?? 0,
-    lng: row.lng ?? 0,
+    lat: row.lat,
+    lng: row.lng,
     phone: row.phone ?? "",
     whatsapp: row.whatsapp ?? null,
     instagram: row.instagram ?? undefined,

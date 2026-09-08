@@ -212,8 +212,8 @@ function BusinessDetail() {
           : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.name} ${b.address || b.city}`)}`);
 
   // All map pins for this business: the main location plus every published branch.
-  // Locations saved without coordinates still get a pin — the map resolves them
-  // from their address, so every listing shows a working map.
+  // Keep missing coordinates explicit; the map shows a notice instead of
+  // guessing a location or contacting an external geocoding service.
   const mapPoints = showLocation
     ? [
         ...(branches.length === 0 || hasCoords
