@@ -47,7 +47,7 @@ export const BusinessInput = z.object({
   verified: z.boolean().default(false),
   dedicated_gf: z.boolean().default(false),
   no_location: z.boolean().default(false),
-  published: z.boolean().default(true),
+  published: z.boolean().default(false),
   needs_review: z.boolean().default(false),
   review_notes: z.array(z.string()).default([]),
 });

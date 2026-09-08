@@ -82,7 +82,7 @@ const DEFAULT_FORM = {
   safety: "red",
   dedicated_gf: false,
   no_location: false,
-  published: true,
+  published: false,
   // Manual subscription tier — changed here only, no online payment involved.
   plan: "free" as PlanTier,
   offers_booking: false,
@@ -255,6 +255,7 @@ function EditBusiness() {
 
   /** Save, either as a hidden draft or published to the public site. */
   async function submit(publish: boolean) {
+    if (publish && !existing?.published && !window.confirm("هل حصلت على موافقة المحل؟ بالنشر سيظهر للزوار في قسمه والبحث.")) return;
     setSaving(true);
     setErr(null);
     setSavedMessage(null);
@@ -855,18 +856,18 @@ function EditBusiness() {
         <span
           className={`me-auto rounded-full px-3 py-1 text-xs font-medium ${form.published ? "bg-primary/10 text-primary" : "bg-amber-500/15 text-amber-700"}`}
         >
-          {form.published ? "الحالة: ظاهر على الموقع" : "الحالة: مسودة مخفية عن الموقع"}
+          {form.published ? "الحالة: منشور للزوار" : "الحالة: مخفي — بانتظار الموافقة"}
         </span>
         <button
           type="button"
           disabled={saving}
           onClick={() => {
-            if (window.confirm("سيتم إخفاء هذا المشروع عن الموقع وحفظه كمسودة. متأكد؟"))
+            if (!form.published || window.confirm("سيتم إخفاء هذا المشروع عن الموقع وحفظه كمسودة. متأكد؟"))
               void submit(false);
           }}
           className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium shadow-[var(--shadow-soft)] disabled:opacity-70"
         >
-          <FileText className="h-4 w-4" /> حفظ كمسودة (إخفاء)
+          <FileText className="h-4 w-4" /> حفظ في الأدمن فقط
         </button>
         <button
           type="button"
@@ -875,7 +876,7 @@ function EditBusiness() {
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-[var(--shadow-elevated)] disabled:opacity-70"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          حفظ ونشر على الموقع
+          {form.published ? "حفظ التعديلات المنشورة" : "موافقة ونشر للزوار"}
         </button>
       </div>
     </div>

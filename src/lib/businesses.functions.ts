@@ -7,6 +7,18 @@ import { PLAN_TIERS, type PlanTier } from "@/lib/plans";
 
 // -------- Admin --------
 
+/** Publish only after the administrator explicitly confirms the owner's consent. */
+export const setBusinessPublication = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid(), published: z.boolean() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { data: row, error } = await context.supabase.from("businesses")
+      .update({ published: data.published }).eq("id", data.id).select("id,published").single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
 /** Turn a business name into a URL-safe slug (Arabic names get a short hash). */
 function makeSlug(name: string) {
   const base = name

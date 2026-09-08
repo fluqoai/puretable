@@ -469,6 +469,9 @@ export async function applyPlan(client: SupabaseClient, plan: RowPlan[]): Promis
     }
     try {
       const payload: Record<string, FieldValue> = { ...row.fields, slug: row.slug };
+      // Imports never grant consent or change an existing approval decision.
+      if (row.matchedId) delete payload["published"];
+      else payload["published"] = false;
       if (row.matchedId) payload["id"] = row.matchedId;
       if (row.imageUrl) {
         const stored = await ingestImage(row.imageUrl, row.slug);

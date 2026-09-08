@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
-import { adminListBusinesses, deleteBusiness, upsertBusiness, dedupeBusinesses, setBusinessPlan } from "@/lib/businesses.functions";
+import { adminListBusinesses, deleteBusiness, upsertBusiness, dedupeBusinesses, setBusinessPlan, setBusinessPublication } from "@/lib/businesses.functions";
 import { signCoverUploadUrl } from "@/lib/admin.functions";
 import { useFilters } from "@/lib/filters";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,17 +14,6 @@ export const Route = createFileRoute("/_authenticated/admin/businesses/")({
   component: BusinessesList,
 });
 
-const CATEGORY_OPTIONS = [
-  ["restaurant", "Restaurant"],
-  ["cafe", "Cafe"],
-  ["bakery", "Bakery"],
-  ["dessert", "Dessert"],
-  ["fine_dining", "Fine Dining"],
-  ["delivery", "Delivery"],
-  ["home", "Home Business"],
-  ["supermarket", "Supermarket"],
-] as const;
-
 const CATEGORY_ORDER: Record<string, number> = { bakery: 0, restaurant: 1, dessert: 2, cafe: 3, fine_dining: 4, delivery: 5, home: 6, supermarket: 7 };
 
 type SortKey = "name" | "category" | "city" | "status" | "links" | "updated";
@@ -35,6 +24,10 @@ function BusinessesList() {
   const del = useServerFn(deleteBusiness);
   const save = useServerFn(upsertBusiness);
   const changePlan = useServerFn(setBusinessPlan);
+  const changePublication = useServerFn(setBusinessPublication);
+  const [publicationFilter, setPublicationFilter] = useState("all");
+  const [publicationBusy, setPublicationBusy] = useState<string | null>(null);
+  const [publicationMessage, setPublicationMessage] = useState("");
   const dedupe = useServerFn(dedupeBusinesses);
   const qc = useQueryClient();
   const { data = [], isLoading } = useQuery({ queryKey: ["admin-businesses"], queryFn: () => list() });
@@ -63,12 +56,13 @@ function BusinessesList() {
   const { all: allFilters } = useFilters();
   const filterOptions: [string, string][] = allFilters.map((f) => [
     f.value,
-    f.custom ? f.label : (CATEGORY_OPTIONS.find(([v]) => v === f.value)?.[1] ?? f.label),
+    f.label,
   ]);
 
 
   const needle = search.trim().toLowerCase();
   const rows = (data as any[])
+    .filter((b) => publicationFilter === "all" || (publicationFilter === "published" ? b.published : !b.published))
     .filter((b) => (onlyReview ? b.needs_review : true))
     .filter((b) =>
       !categoryFilter
@@ -124,6 +118,8 @@ function BusinessesList() {
   function refresh() {
     qc.invalidateQueries({ queryKey: ["admin-businesses"] });
     qc.invalidateQueries({ queryKey: ["businesses"] });
+    qc.invalidateQueries({ queryKey: ["business"] });
+    qc.invalidateQueries({ queryKey: ["admin-business"] });
   }
 
   async function runDedupe(silent = false) {
@@ -159,7 +155,16 @@ function BusinessesList() {
   }
 
   async function togglePublish(b: any) {
-    await patch(b, { published: !b.published });
+    if (!window.confirm(b.published ? `إخفاء «${b.name}» عن الزوار؟ ستبقى بياناته في الأدمن.` : `هل حصلت على موافقة «${b.name}»؟ سيظهر للزوار في قسمه والبحث.`)) return;
+    setPublicationBusy(b.id);
+    setPublicationMessage("");
+    try {
+      await changePublication({ data: { id: b.id, published: !b.published } });
+      setPublicationMessage(b.published ? "تم إخفاء المحل مع الاحتفاظ ببياناته." : "تم نشر المحل للزوار في قسمه.");
+      refresh();
+    } catch (error) {
+      setPublicationMessage(error instanceof Error ? error.message : "تعذر تغيير حالة النشر.");
+    } finally { setPublicationBusy(null); }
   }
 
   async function onPlanChange(b: any, plan: PlanTier) {
@@ -190,7 +195,7 @@ function BusinessesList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold">الأعمال والفروع</h1>
-          <p className="text-sm text-muted-foreground">ابحث عن العمل لتعديل بياناته أو باقته، وأضف أعمالاً جديدة من الزر المقابل.</p>
+          <p className="text-sm text-muted-foreground">كل المحلات محفوظة هنا. بعد التواصل والحصول على الموافقة اضغط «موافقة ونشر» ليظهر المحل للزوار في قسمه.</p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/admin/businesses/$id" params={{ id: "new" }}
@@ -204,10 +209,14 @@ function BusinessesList() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2" aria-label="حالة النشر">
+        {[["all", "كل المحلات", data.length], ["pending", "بانتظار الموافقة / مخفي", data.filter((b) => !b.published).length], ["published", "منشور للزوار", data.filter((b) => b.published).length]].map(([value, label, count]) => <button key={value} type="button" aria-pressed={publicationFilter === value} onClick={() => setPublicationFilter(String(value))} className={`rounded-full border px-4 py-2 text-sm ${publicationFilter === value ? "bg-primary text-primary-foreground" : "bg-card"}`}>{label} ({count})</button>)}
+      </div>
+      {publicationMessage && <p role="status" className="rounded-xl border p-3 text-sm">{publicationMessage}</p>}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-semibold">By category</h2>
+            <h2 className="text-sm font-semibold">حسب القسم</h2>
             <span className="font-display text-2xl font-semibold">{all.length}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -355,7 +364,7 @@ function BusinessesList() {
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-start gap-1">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${b.published ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                        {b.published ? "Published" : "Hidden"}
+                        {b.published ? "منشور للزوار" : "بانتظار الموافقة / مخفي"}
                       </span>
                       {b.needs_review && (
                         <button type="button" onClick={() => patch(b, { needs_review: false, review_notes: [] })}
@@ -384,9 +393,9 @@ function BusinessesList() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => togglePublish(b)}
+                      <button type="button" disabled={publicationBusy !== null} onClick={() => void togglePublish(b)}
                         className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs hover:border-primary/40 hover:text-primary">
-                        {b.published ? <><EyeOff className="h-3 w-3" /> Hide</> : <><Eye className="h-3 w-3" /> Publish</>}
+                        {publicationBusy === b.id ? "جارٍ الحفظ…" : b.published ? <><EyeOff className="h-3 w-3" /> إخفاء عن الزوار</> : <><Eye className="h-3 w-3" /> موافقة ونشر</>}
                       </button>
                       <Link to="/admin/businesses/$id" params={{ id: b.id }}
                         className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs hover:border-primary/40 hover:text-primary">
