@@ -3,12 +3,10 @@ import { ogImageMeta } from "@/lib/seo";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, CalendarCheck, Bike, ShoppingBag, Navigation, Sparkles } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import heroImg from "@/assets/hero.jpg";
 import { Page } from "@/components/site/Layout";
 import { BusinessCard } from "@/components/site/BusinessCard";
-import { hasCategory } from "@/data/businesses";
-import { discoverBusinesses } from "@/lib/discovery";
+import { categoryPreviews } from "@/lib/home-categories";
 import { useFilters } from "@/lib/filters";
 import { listBusinesses } from "@/lib/businesses.public.functions";
 import { usePageView } from "@/hooks/use-page-view";
@@ -68,13 +66,17 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { t } = useTranslation();
-  const { text, shows, loc, layout } = useSiteText();
+  const { text, shows, loc, layout, lang } = useSiteText();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   usePageView();
 
-  const { data: businesses = [] } = useQuery({
+  const {
+    data: businesses = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["businesses"],
     queryFn: () => listBusinesses(),
   });
@@ -82,6 +84,7 @@ function Home() {
   // Categories come from the shared filter registry (built-in + admin-created);
   // each one can be hidden from the dashboard.
   const { visible: categories } = useFilters();
+  const groups = categoryPreviews(businesses, categories);
 
   function findNearby() {
     track({ event_type: "filter_click", platform: "main", label: "near_me" });
@@ -256,18 +259,78 @@ function Home() {
 
     home_all_places: () => (
       <section key="all" className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        <h2 className="font-display text-2xl font-semibold">{text("home.all_places")}</h2>
-        {businesses.length === 0 ? (
+        <h2 className="font-display text-2xl font-semibold">
+          {lang === "ar" ? "تصفّح الأماكن حسب النوع" : "Browse places by category"}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {lang === "ar"
+            ? "اختر القسم الذي يناسبك، أو شاهد جميع أماكنه دون إطالة الصفحة الرئيسية."
+            : "Choose a category and explore its full directory."}
+        </p>
+        <nav
+          aria-label={lang === "ar" ? "أقسام الأماكن" : "Place categories"}
+          className="mt-5 flex flex-wrap gap-2"
+        >
+          {groups.map(({ category, count }) => (
+            <Link
+              key={category.value}
+              to={category.path}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm hover:border-primary focus-visible:outline-primary"
+            >
+              <category.icon className="h-4 w-4 text-primary" aria-hidden="true" />
+              {category.label}
+              {!isLoading && !error && (
+                <span className="text-xs text-muted-foreground">({count})</span>
+              )}
+            </Link>
+          ))}
+        </nav>
+        {isLoading ? (
+          <p role="status" className="mt-6">
+            {lang === "ar" ? "جارٍ تحميل الأقسام…" : "Loading categories…"}
+          </p>
+        ) : error ? (
+          <div role="alert" className="mt-6 text-sm">
+            <p>{lang === "ar" ? "تعذر تحميل الأماكن." : "Could not load places."}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-2 text-primary underline"
+            >
+              {lang === "ar" ? "إعادة المحاولة" : "Try again"}
+            </button>
+          </div>
+        ) : businesses.length === 0 ? (
           <p className="mt-6 text-sm text-muted-foreground">{text("home.no_places")}</p>
         ) : (
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {discoverBusinesses(
-              businesses.filter(
-                (b) => categories.length === 0 || categories.some((c) => hasCategory(b, c.value)),
-              ),
-            ).map(({ business }) => (
-              <BusinessCard key={business.id} b={business} />
-            ))}
+          <div className="mt-8 space-y-12">
+            {groups
+              .filter((group) => group.count > 0)
+              .map(({ category, count, preview }) => (
+                <section key={category.value} aria-labelledby={`home-category-${category.value}`}>
+                  <div className="mb-5 flex items-center justify-between gap-3">
+                    <h3
+                      id={`home-category-${category.value}`}
+                      className="flex items-center gap-2 font-display text-xl font-semibold"
+                    >
+                      <category.icon className="h-5 w-5 text-primary" aria-hidden="true" />
+                      {category.label}
+                    </h3>
+                    <Link
+                      to={category.path}
+                      aria-label={`${lang === "ar" ? "عرض كل" : "View all"} ${category.label}`}
+                      className="shrink-0 rounded-full border border-primary/30 px-4 py-2 text-sm text-primary hover:bg-primary-soft"
+                    >
+                      {lang === "ar" ? "عرض الكل" : "View all"} ({count})
+                    </Link>
+                  </div>
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {preview.map((business) => (
+                      <BusinessCard key={business.id} b={business} />
+                    ))}
+                  </div>
+                </section>
+              ))}
           </div>
         )}
       </section>

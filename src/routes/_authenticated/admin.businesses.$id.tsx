@@ -55,7 +55,7 @@ const DEFAULT_FORM = {
   slug: "",
   name: "",
   name_ar: "",
-  category: "restaurant" as const,
+  category: "",
   categories: [] as string[],
   city: "Riyadh",
   cities: [] as string[],
@@ -259,6 +259,9 @@ function EditBusiness() {
     setErr(null);
     setSavedMessage(null);
     try {
+      if (!form.category || isServiceValue(form.category)) {
+        throw new Error("اختر نوع المكان قبل الحفظ: مطعم، مقهى، مخبز أو نوع آخر.");
+      }
       const payload = { ...form };
       payload.published = publish;
       payload.region = regionKey;
@@ -516,7 +519,7 @@ function EditBusiness() {
           </button>
         </Section>
 
-        <Section title="Basics">
+        <Section title="المعلومات الأساسية / Basics">
           <Grid>
             <Input
               label="الاسم / Name"
@@ -530,22 +533,34 @@ function EditBusiness() {
               onChange={(v) => up("slug", v.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))}
             />
 
-            {/* Two pickers, many filters: both allow more than one choice. */}
+            <label className="col-span-full grid gap-2 text-sm font-medium">
+              نوع المكان الأساسي / Place type *
+              <select required value={form.category} onChange={(event) => {
+                const category = event.target.value;
+                setForm((previous: typeof form) => ({ ...previous, category, categories: [...new Set([category, ...(previous.categories ?? []).filter((value: string) => value !== previous.category)].filter(Boolean))] }));
+              }} className="rounded-xl border border-border bg-card px-3 py-3">
+                <option value="" disabled>اختر نوع المكان / Choose a type</option>
+                {secondaryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {form.category && !secondaryOptions.some(([value]) => value === form.category) && <option value={form.category}>{form.category}</option>}
+              </select>
+              <span className="text-xs font-normal text-muted-foreground">يحدد القسم الذي يظهر فيه المكان في الدليل. يمكنك إضافة أنواع أخرى أدناه إذا كان المكان يجمع أكثر من نشاط.</span>
+            </label>
+            {/* Extra types and service tags remain separate from the primary type. */}
             <div className="col-span-full space-y-4">
               <div className="text-xs text-muted-foreground">
-                اختر أكثر من قسم في كل مجموعة — Main و Secondary معًا
+                التصنيفات الإضافية اختيارية، وخدمات الطلب لا تغيّر نوع المكان.
               </div>
               {(
                 [
                   [
-                    "الأقسام الرئيسية / Main categories",
+                    "خدمات الطلب / Services",
                     "طريقة الطلب: حجز طاولة، توصيل، استلام",
                     mainOptions,
                   ],
                   [
-                    "الأقسام الفرعية / Secondary categories",
-                    "نوع المكان: مطاعم، مقاهي، مخابز…",
-                    secondaryOptions,
+                    "أنواع إضافية / Additional types",
+                    "اختياري: مثلاً مخبز يقدم أيضاً مقهى",
+                    secondaryOptions.filter(([value]) => value !== form.category),
                   ],
                 ] as [string, string, [string, string][]][]
               ).map(([groupLabel, hint, options]) =>
@@ -561,6 +576,7 @@ function EditBusiness() {
                             key={value}
                             type="button"
                             onClick={() => toggleCategory(value)}
+                            aria-pressed={on}
                             className={`rounded-full border px-3 py-1.5 text-xs font-medium ${on ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"}`}
                           >
                             {on ? "✓ " : "+ "}

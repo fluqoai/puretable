@@ -31,7 +31,7 @@ function distanceKm(a: Coordinates, b: Coordinates) {
   return 2 * earthRadiusKm * Math.asin(Math.sqrt(haversine));
 }
 
-function hasCategory(business: Business, category: string) {
+export function hasCategory(business: Business, category: string) {
   const categories = business.categories?.length ? business.categories : [business.category];
   return (categories as string[]).includes(category);
 }
