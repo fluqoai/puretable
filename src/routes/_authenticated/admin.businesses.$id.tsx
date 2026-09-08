@@ -11,11 +11,9 @@ import {
   deleteBranch,
 } from "@/lib/businesses.functions";
 import { signCoverUploadUrl } from "@/lib/admin.functions";
-import { importBranches, findBranches } from "@/lib/places.functions";
-import type { PlaceBranch } from "@/lib/places.server";
 import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker } from "@/components/admin/LocationPicker";
-import { PlaceAutofill } from "@/components/admin/PlaceAutofill";
+import { BranchEditor } from "@/components/admin/BranchEditor";
 import { MAIN_CITIES, findCity, regionForCity } from "@/lib/saudi";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { useFilters } from "@/lib/filters";
@@ -35,7 +33,6 @@ import {
   Save,
   X,
   FileText,
-  Search,
   AlertTriangle,
 } from "lucide-react";
 
@@ -49,7 +46,6 @@ import {
   PLAN_SUMMARIES,
   PLAN_TIERS,
   branchLimitLabel,
-  remainingBranchSlots,
   type PlanTier,
 } from "@/lib/plans";
 
@@ -153,7 +149,6 @@ function EditBusiness() {
   const saveBranch = useServerFn(upsertBranch);
   const removeBranch = useServerFn(deleteBranch);
   const signUpload = useServerFn(signCoverUploadUrl);
-  const pullBranches = useServerFn(importBranches);
   // Built-in filters plus any filter the admin created from Appearance.
   const { all: allFilters } = useFilters();
   const categoryOptions = allFilters.map(
@@ -183,9 +178,6 @@ function EditBusiness() {
   const [uploading, setUploading] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [pendingGoogleBranches, setPendingGoogleBranches] = useState<string[]>([]);
-  // Bumped after a Google Maps autofill so the branch list is fetched automatically.
-  const [autoBranchKey, setAutoBranchKey] = useState(0);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -280,10 +272,7 @@ function EditBusiness() {
 
       if (isNew) delete payload.id;
       const saved = await save({ data: payload });
-      // New-place Google results stay in memory until this explicit Save action.
-      if (isNew && pendingGoogleBranches.length > 0) {
-        await pullBranches({ data: { businessId: saved.id, placeIds: pendingGoogleBranches } });
-      }
+
       void logAudit(
         isNew ? "create_business" : publish ? "publish_business" : "save_business_draft",
         "business",
@@ -430,25 +419,7 @@ function EditBusiness() {
         }}
         className="space-y-6"
       >
-        <Section title="Autofill from Google Maps">
-          <PlaceAutofill
-            name={form.name}
-            city={form.city}
-            businessId={isNew ? undefined : id}
-            branchLimit={selectedBranchLimit}
-            onBranchSelectionChange={isNew ? setPendingGoogleBranches : undefined}
-            onApply={(patch: Record<string, unknown>) => {
-              setForm((f: any) => ({
-                ...f,
-                ...patch,
-                hours: patch.hours ? { ...f.hours, ...(patch.hours as object) } : f.hours,
-                slug: f.slug || "",
-              }));
-              // Immediately fetch every branch of this brand for manual selection.
-              if (!isNew) setAutoBranchKey((k) => k + 1);
-            }}
-          />
-        </Section>
+
 
         <Section title="Cover photo">
           {form.cover_url ? (
@@ -754,7 +725,7 @@ function EditBusiness() {
         <Section title="Action buttons (order & contact links)">
           <p className="text-xs text-muted-foreground">
             Paste the exact product URL from each platform. Each click is tracked before
-            redirecting. Auto-generated buttons (Call, Instagram, Google Maps) don't need to be
+            redirecting. Auto-generated buttons (Call, Instagram, Directions) don't need to be
             added here.
           </p>
           <LinksEditor
@@ -840,7 +811,7 @@ function EditBusiness() {
               {/* Coordinates are set by the map picker below, never typed by hand. */}
 
               <Input
-                label="Google Maps link (paste from Google Maps)"
+                label="Directions link (paste from Directions)"
                 value={form.maps_url ?? ""}
                 onChange={(v) => up("maps_url", v)}
                 className="sm:col-span-2"
@@ -857,32 +828,16 @@ function EditBusiness() {
 
       {!isNew && (
         <Section title="الفروع / Branches">
-          <p className="text-xs text-muted-foreground">
-            اضغط "اكتشاف الفروع" (أو استخدم الأوتوفل من خرائط جوجل بالأعلى) ليجلب الموقع كل الفروع
-            المرتبطة بهذا الاسم. ✔️ حدّد الفروع الصحيحة — تقدر تختار أكثر من فرع — ثم احفظ. أي فرع
-            خطأ احذفه لاحقًا بعلامة ✕، وكل الفروع المحفوظة تظهر كنقاط حمراء على الخريطة أسفل صفحة
-            المشروع.
-          </p>
-          <BranchDiscovery
-            businessId={id}
-            name={form.name}
-            city={form.city}
-            existing={branches}
-            plan={selectedPlan}
-            autoSearchKey={autoBranchKey}
-            onImport={async (include) => {
-              const res = await pullBranches({ data: { businessId: id, placeIds: include } });
+          <BranchEditor businessId={id} city={form.city} existing={branches} plan={selectedPlan}
+            onSave={async (row) => {
+              await saveBranch({ data: row });
               await qc.invalidateQueries({ queryKey: ["admin-business", id] });
-              setForm((f: any) => ({ ...f, no_location: false }));
-              return res;
+              await qc.invalidateQueries({ queryKey: ["businesses"] });
             }}
             onDelete={async (branchId) => {
               await removeBranch({ data: { id: branchId } });
-              qc.invalidateQueries({ queryKey: ["admin-business", id] });
-            }}
-            onToggle={async (row) => {
-              await saveBranch({ data: row });
-              qc.invalidateQueries({ queryKey: ["admin-business", id] });
+              await qc.invalidateQueries({ queryKey: ["admin-business", id] });
+              await qc.invalidateQueries({ queryKey: ["businesses"] });
             }}
           />
         </Section>
@@ -936,309 +891,10 @@ function EditBusiness() {
 }
 
 /**
- * Branches are discovered from Google Maps instead of typed in by hand.
+ * Branches are discovered from Directions instead of typed in by hand.
  * The admin previews every location found, removes the wrong ones with ✕,
  * and only then imports the rest (opening hours included).
  */
-function BranchDiscovery({
-  businessId,
-  name,
-  city,
-  existing,
-  plan,
-  onImport,
-  onDelete,
-  onToggle,
-  autoSearchKey = 0,
-}: {
-  businessId: string;
-  name: string;
-  city: string;
-  existing: any[];
-  plan: PlanTier;
-  onImport: (include: string[]) => Promise<{ imported: number; skipped: number }>;
-  onDelete: (id: string) => Promise<void>;
-  onToggle: (row: any) => Promise<void>;
-  autoSearchKey?: number;
-}) {
-  const discover = useServerFn(findBranches);
-  const [found, setFound] = useState<PlaceBranch[] | null>(null);
-  const [removed, setRemoved] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const publishedCount = existing.filter((branch) => branch.published).length;
-  const remaining = remainingBranchSlots(plan, publishedCount);
-
-  async function search() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = (await discover({
-        data: { query: name, city: city || undefined, businessId },
-      })) as PlaceBranch[];
-      setFound(res);
-      // Start with a valid selection for the active package instead of allowing
-      // a save that the database will reject.
-      const eligible = res.filter(
-        (place) => !place.duplicateMatches?.length && place.businessStatus !== "CLOSED_PERMANENTLY",
-      );
-      const initiallyRemoved = new Set(
-        res
-          .filter(
-            (place) =>
-              place.duplicateMatches?.length || place.businessStatus === "CLOSED_PERMANENTLY",
-          )
-          .map((place) => place.placeId),
-      );
-      if (remaining !== null)
-        eligible.slice(remaining).forEach((place) => initiallyRemoved.add(place.placeId));
-      setRemoved(initiallyRemoved);
-      if (res.length === 0) setMsg("لم يتم العثور على فروع في خرائط جوجل.");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Branch search failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // After a Google Maps autofill, look the brand's branches up right away.
-  const searchRef = useRef(search);
-  searchRef.current = search;
-  useEffect(() => {
-    if (autoSearchKey > 0) void searchRef.current();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSearchKey]);
-
-  async function importKept() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const include = keep.map((p) => p.placeId).filter(Boolean) as string[];
-      const res = await onImport(include);
-      setFound(null);
-      setMsg(`تمت إضافة ${res.imported} فرع، وتم تجاهل ${res.skipped} مكرر.`);
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Branch import failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const keep = (found ?? []).filter((p) => !removed.has(p.placeId));
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl bg-secondary/60 p-3 text-xs text-muted-foreground">
-        الباقة الحالية: <strong className="text-foreground">{PLAN_LABELS[plan]}</strong> — الفروع
-        الظاهرة {publishedCount}
-        من {branchLimitLabel(plan)}.
-        {remaining === 0 && (
-          <span className="mt-1 block text-amber-700">
-            وصل النشاط إلى الحد الحالي. أخفِ فرعاً أو ارفع الباقة قبل إضافة فرع ظاهر.
-          </span>
-        )}
-      </div>
-      <div className="space-y-2">
-        {existing.map((b) => (
-          <div key={b.id} className="space-y-2 rounded-xl border border-border p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold">{b.name}</span>
-              <span className="truncate text-xs text-muted-foreground">{b.address}</span>
-              {!b.published && (
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">
-                  {b.plan_limited ? "مخفي بسبب الباقة" : "مخفي يدوياً"}
-                </span>
-              )}
-              <div className="ms-auto flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={!b.published && remaining === 0}
-                  title={
-                    !b.published && remaining === 0
-                      ? "لا توجد مساحة متاحة في الباقة الحالية"
-                      : undefined
-                  }
-                  onClick={async () => {
-                    setMsg(null);
-                    try {
-                      await onToggle({ ...b, published: !b.published, plan_limited: false });
-                    } catch (error) {
-                      setMsg(error instanceof Error ? error.message : "تعذر تغيير حالة الفرع");
-                    }
-                  }}
-                  className="text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {b.published ? "إخفاء" : "إظهار"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(b.id)}
-                  className="text-xs text-destructive"
-                  title="حذف الفرع"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-            {/* Per-branch contact details — saved on blur. */}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                defaultValue={b.phone ?? ""}
-                placeholder="هاتف الفرع / Phone"
-                onBlur={(e) =>
-                  e.target.value !== (b.phone ?? "") &&
-                  onToggle({ ...b, phone: e.target.value || null })
-                }
-                className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
-              />
-              <input
-                defaultValue={b.whatsapp ?? ""}
-                placeholder="واتساب الفرع / WhatsApp"
-                onBlur={(e) =>
-                  e.target.value !== (b.whatsapp ?? "") &&
-                  onToggle({ ...b, whatsapp: e.target.value || null })
-                }
-                className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
-              />
-            </div>
-          </div>
-        ))}
-        {existing.length === 0 && (
-          <p className="text-xs text-muted-foreground">لا توجد فروع بعد.</p>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={busy || !name}
-          onClick={search}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
-        >
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Search className="h-3.5 w-3.5" />
-          )}
-          اكتشاف الفروع من خرائط جوجل
-        </button>
-        {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
-      </div>
-
-      {found && found.length > 0 && (
-        <div className="space-y-2 rounded-xl border border-dashed border-border p-4">
-          <p className="text-xs font-semibold">
-            تم العثور على {found.length} موقع — اختر الفروع الصحيحة ({keep.length} محدد)
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <button
-              type="button"
-              className="text-primary"
-              onClick={() => {
-                const eligible = found.filter(
-                  (place) =>
-                    !place.duplicateMatches?.length &&
-                    place.businessStatus !== "CLOSED_PERMANENTLY",
-                );
-                const selected = remaining === null ? eligible : eligible.slice(0, remaining);
-                setRemoved(
-                  new Set(
-                    found
-                      .filter((place) => !selected.includes(place))
-                      .map((place) => place.placeId),
-                  ),
-                );
-              }}
-            >
-              تحديد المتاح
-            </button>
-            <button
-              type="button"
-              className="text-muted-foreground"
-              onClick={() => setRemoved(new Set(found.map((p) => p.placeId)))}
-            >
-              إلغاء الكل
-            </button>
-          </div>
-          {found.map((p) => {
-            const key = p.placeId;
-            const on = !removed.has(key);
-            const savedHere = p.duplicateMatches?.find((match) => match.kind === "saved_here");
-            const duplicateElsewhere = p.duplicateMatches?.find(
-              (match) => match.kind === "other_business",
-            );
-            const permanentlyClosed = p.businessStatus === "CLOSED_PERMANENTLY";
-            const blocked = !!savedHere || !!duplicateElsewhere || permanentlyClosed;
-            return (
-              <label
-                key={key}
-                className={`flex items-start gap-3 rounded-lg border p-3 text-xs ${on ? "border-primary/40 bg-primary-soft/40" : "border-border opacity-70"} ${blocked ? "cursor-not-allowed" : "cursor-pointer"}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  disabled={blocked}
-                  className="mt-0.5"
-                  onChange={() => {
-                    if (!on && remaining !== null && keep.length >= remaining) {
-                      setMsg(
-                        `يمكن اختيار ${remaining} فروع إضافية فقط في باقة ${plan.toUpperCase()}.`,
-                      );
-                      return;
-                    }
-                    setRemoved((s) => {
-                      const n = new Set(s);
-                      n.has(key) ? n.delete(key) : n.add(key);
-                      return n;
-                    });
-                  }}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{p.name}</span>
-                  <span className="block text-muted-foreground">
-                    {p.address || "العنوان غير متوفر"}
-                  </span>
-                  <span className="mt-1 block text-muted-foreground">
-                    {p.phone ?? "لا يوجد هاتف"} ·{" "}
-                    {Object.keys(p.hours).length ? "ساعات العمل متوفرة" : "ساعات العمل غير متوفرة"}
-                    {p.website ? " · موقع إلكتروني متوفر" : ""}
-                  </span>
-                  {savedHere && (
-                    <span className="mt-1 block font-medium text-muted-foreground">
-                      محفوظ مسبقاً في هذا النشاط
-                    </span>
-                  )}
-                  {duplicateElsewhere && (
-                    <span className="mt-1 block font-medium text-amber-700">
-                      مكرر مع «{duplicateElsewhere.businessName}»
-                    </span>
-                  )}
-                  {permanentlyClosed && (
-                    <span className="mt-1 block font-medium text-destructive">
-                      مغلق نهائياً حسب Google Maps
-                    </span>
-                  )}
-                </span>
-              </label>
-            );
-          })}
-          <button
-            type="button"
-            disabled={busy || keep.length === 0}
-            onClick={importKept}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} حفظ
-            الفروع المحددة ({keep.length})
-          </button>
-        </div>
-      )}
-
-      <input type="hidden" value={businessId} />
-    </div>
-  );
-}
-
 function LinksEditor({
   businessId,
   links,

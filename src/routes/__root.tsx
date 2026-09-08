@@ -21,7 +21,7 @@ import { DEFAULT_LOGO_URL } from "@/lib/brand";
 
 import appCss from "../styles.css?url";
 import { LanguageProvider } from "../lib/i18n/LanguageProvider";
-import { GoogleAnalytics } from "../lib/google-analytics";
+import { PosthogAnalytics } from "../lib/posthog-analytics";
 import "../lib/i18n";
 import "../lib/stale-build-recovery";
 
@@ -171,7 +171,7 @@ function RootComponent() {
       <HydrationBoundary state={dehydratedState}>
         <LanguageProvider>
           <BrandingEffects />
-          <GoogleAnalytics />
+          <PosthogAnalytics />
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
         </LanguageProvider>

@@ -14,16 +14,16 @@ Pure Table is a TanStack Start application with server rendering, server functio
 ## Runtime boundaries
 
 - Variables prefixed with `VITE_` are public browser configuration.
-- `SUPABASE_SERVICE_ROLE_KEY` and `GOOGLE_MAPS_API_KEY` are server-only.
+- `SUPABASE_SERVICE_ROLE_KEY` are server-only.
 - Public Supabase access uses the publishable key together with Row Level Security.
 - Administrative mutations require an authenticated admin and are checked again by database policies.
 
 ## External services
 
-- Google Maps JavaScript API renders maps in the browser.
-- Google Places REST API runs on the server for business lookup and auto-fill.
+- Mapbox GL JS is lazy-loaded in the browser for maps and manual coordinate picking.
+- No external place search or enrichment API is used. Admin-entered coordinates are authoritative.
 - Public Google Sheets can be imported through their standard CSV export.
-- Google Analytics is optional and enabled only when its measurement ID is configured.
+- PostHog EU receives explicit anonymous events; first-party analytics and reports are unchanged.
 - The public MCP endpoint uses the official Model Context Protocol TypeScript SDK.
 
 ## Deployment

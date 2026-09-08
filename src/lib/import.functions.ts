@@ -46,22 +46,7 @@ export const commitImport = createServerFn({ method: "POST" })
     );
   });
 
-// Admin picked the right Google Maps result for an ambiguous import row.
-export const resolveImportRow = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: { row: RowPlan; placeId: string }) => d)
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { applyPlace } = await import("@/lib/import.server");
-    const row: RowPlan = { ...data.row, fields: { ...data.row.fields }, errors: [] };
-    row.action = row.matchedId ? "update" : "create";
-    row.status = "ready";
-    const city = typeof row.fields["city"] === "string" ? (row.fields["city"] as string) : null;
-    await applyPlace(row, data.placeId, city);
-    return row;
-  });
-
-// Re-run the Google Maps lookup for a single failed/incomplete row.
+// Revalidate the uploaded data without external place lookups.
 export const retryImportRow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { row: RowPlan }) => d)
@@ -73,7 +58,6 @@ export const retryImportRow = createServerFn({ method: "POST" })
       fields: { ...data.row.fields },
       errors: [],
       missing: [],
-      candidates: [],
       status: "ready",
       action: data.row.matchedId ? "update" : "create",
     };

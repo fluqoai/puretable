@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "./BusinessMap";
+import type { Map as MapboxMap, Marker } from "mapbox-gl";
+import { loadMapbox } from "@/lib/mapbox";
+import { hasCoordinates } from "@/lib/coordinates";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export type MapPoint = {
   id: string;
@@ -8,40 +11,9 @@ export type MapPoint = {
   lng?: number | null;
   address?: string | null;
   mapsUrl?: string | null;
-  /** Used to look the pin up on Google Maps when no coordinates were saved. */
   query?: string | null;
 };
 
-type GoogleMarker = {
-  addListener: (event: string, callback: () => void) => void;
-  getPosition?: () => unknown;
-  setAnimation?: (animation: unknown) => void;
-  setMap?: (map: null) => void;
-};
-
-type GoogleMap = {
-  fitBounds: (bounds: unknown, padding: number) => void;
-  getZoom?: () => number | undefined;
-  panTo: (position: unknown) => void;
-  setZoom?: (zoom: number) => void;
-};
-
-type GeocoderResult = {
-  geometry?: { location?: { lat: () => number; lng: () => number } };
-};
-
-function escapeHtml(v: string) {
-  return v.replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
-  );
-}
-
-/**
- * Shows every branch of one business on a single map, with a pin per location.
- * Locations saved without coordinates (most listings) are resolved from their
- * address with the Google geocoder, so the map still shows the right place.
- */
 export function BranchesMap({
   points,
   height = 360,
@@ -53,139 +25,158 @@ export function BranchesMap({
   activePointId?: string | null;
   onPointSelect?: (id: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<GoogleMap | null>(null);
-  const markerRefs = useRef(new Map<string, GoogleMarker>());
-  const pointsRef = useRef(points);
-  pointsRef.current = points;
-  const pointsKey = JSON.stringify(points);
-  const [error, setError] = useState<string | null>(null);
-  const [empty, setEmpty] = useState(false);
+  const { lang } = useLanguage();
+  const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markers = useRef(new Map<string, Marker>());
+  const callback = useRef(onPointSelect);
+  callback.current = onPointSelect;
+  const pointsKey = JSON.stringify(points.filter(hasCoordinates));
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    const pins = JSON.parse(pointsKey) as (MapPoint & { lat: number; lng: number })[];
+    if (!pins.length) return;
     let cancelled = false;
-    const markers: GoogleMarker[] = [];
-    const markerMap = markerRefs.current;
-    const currentPoints = pointsRef.current;
-    if (currentPoints.length === 0) return;
-
-    loadGoogleMaps()
-      .then(async () => {
-        if (cancelled || !ref.current || !window.google) return;
-        const google = window.google;
-
-        // Resolve every point to real coordinates first.
-        const geocoder = new google.maps.Geocoder();
-        const resolve = (p: MapPoint) =>
-          new Promise<(MapPoint & { lat: number; lng: number }) | null>((done) => {
-            if (typeof p.lat === "number" && typeof p.lng === "number") {
-              done({ ...p, lat: p.lat, lng: p.lng });
-              return;
-            }
-            const address = (p.query || p.address || p.title || "").trim();
-            if (!address) {
-              done(null);
-              return;
-            }
-            geocoder.geocode(
-              { address, region: "SA" },
-              (res: GeocoderResult[] | null, status: string) => {
-                const loc = status === "OK" ? res?.[0]?.geometry?.location : null;
-                done(loc ? { ...p, lat: loc.lat(), lng: loc.lng() } : null);
-              },
-            );
-          });
-
-        const resolved = (await Promise.all(currentPoints.map(resolve))).filter(
-          Boolean,
-        ) as (MapPoint & {
-          lat: number;
-          lng: number;
-        })[];
-        if (cancelled || !ref.current) return;
-        if (resolved.length === 0) {
-          setEmpty(true);
-          return;
-        }
-        setEmpty(false);
-
-        const map = new google.maps.Map(ref.current, {
-          center: { lat: resolved[0]!.lat, lng: resolved[0]!.lng },
-          zoom: 12,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
+    let loaded = false;
+    let map: MapboxMap | undefined;
+    let observer: ResizeObserver | undefined;
+    const registry = markers.current;
+    setStatus("loading");
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) setStatus("error");
+    }, 20000);
+    loadMapbox()
+      .then((mb) => {
+        if (cancelled || !container.current) return;
+        map = new mb.Map({
+          container: container.current,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center: [pins[0].lng, pins[0].lat],
+          zoom: 13,
+          language: lang === "ar" ? "ar" : "en",
+          cooperativeGestures: true,
         });
-        mapRef.current = map as GoogleMap;
-        markerMap.clear();
-        const bounds = new google.maps.LatLngBounds();
-        const info = new google.maps.InfoWindow();
-        resolved.forEach((p) => {
-          const marker = new google.maps.Marker({
-            position: { lat: p.lat, lng: p.lng },
-            map,
-            title: p.title,
-          });
-          markerMap.set(p.id, marker as GoogleMarker);
-          const link =
-            p.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
-          marker.addListener("click", () => {
-            onPointSelect?.(p.id);
-            info.setContent(
-              `<div style="font-family:inherit;max-width:220px">
-                 <div style="font-size:13px;font-weight:700;margin-bottom:2px">${escapeHtml(p.title)}</div>
-                 ${p.address ? `<div style="font-size:12px;color:#555;margin-bottom:6px">${escapeHtml(p.address)}</div>` : ""}
-                 <a href="${escapeHtml(link)}" target="_blank" rel="noreferrer noopener"
-                    style="font-size:12px;font-weight:600;color:#2f7d54;text-decoration:none">↗ Google Maps</a>
-               </div>`,
-            );
-            info.open({ anchor: marker, map });
-          });
-          markers.push(marker as GoogleMarker);
-          bounds.extend({ lat: p.lat, lng: p.lng });
+        mapRef.current = map;
+        map.addControl(new mb.NavigationControl({ showCompass: false }), "top-right");
+        map.once("load", () => {
+          loaded = true;
+          if (!cancelled) {
+            clearTimeout(timeout);
+            setStatus("ready");
+          }
         });
-        if (resolved.length > 1) map.fitBounds(bounds, 60);
+        map.on("error", () => {
+          if (!cancelled && !loaded) setStatus("error");
+        });
+        const bounds = new mb.LngLatBounds();
+        pins.forEach((pin) => {
+          const content = document.createElement("div");
+          content.dir = lang === "ar" ? "rtl" : "ltr";
+          const title = document.createElement("strong");
+          title.textContent = pin.title;
+          content.append(title);
+          if (pin.address) {
+            const address = document.createElement("p");
+            address.textContent = pin.address;
+            content.append(address);
+          }
+          const marker = new mb.Marker({ color: "#dc2626" })
+            .setLngLat([pin.lng, pin.lat])
+            .setPopup(new mb.Popup({ offset: 26 }).setDOMContent(content))
+            .addTo(map!);
+          const el = marker.getElement();
+          el.setAttribute("role", "button");
+          el.setAttribute("aria-label", pin.title);
+          el.tabIndex = 0;
+          el.addEventListener("click", () => callback.current?.(pin.id));
+          el.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              callback.current?.(pin.id);
+            }
+          });
+          registry.set(pin.id, marker);
+          bounds.extend([pin.lng, pin.lat]);
+        });
+        if (pins.length > 1) map.fitBounds(bounds, { padding: 55, maxZoom: 15, duration: 0 });
+        observer = new ResizeObserver(() => map?.resize());
+        observer.observe(container.current);
       })
-      .catch((error: unknown) => {
-        if (!cancelled) setError(error instanceof Error ? error.message : "Google Maps error");
+      .catch(() => {
+        if (!cancelled) setStatus("error");
       });
-
     return () => {
       cancelled = true;
-      markers.forEach((m) => m.setMap?.(null));
-      markerMap.clear();
+      clearTimeout(timeout);
+      observer?.disconnect();
+      registry.forEach((marker) => marker.remove());
+      registry.clear();
+      map?.remove();
       mapRef.current = null;
     };
-  }, [onPointSelect, pointsKey]);
+  }, [pointsKey, lang, attempt]);
 
   useEffect(() => {
-    if (!activePointId) return;
-    const marker = markerRefs.current.get(activePointId);
-    const map = mapRef.current;
-    if (!marker || !map) return;
-    const position = marker.getPosition?.();
-    if (position) map.panTo(position);
-    const zoom = map.getZoom?.() ?? 12;
-    if (zoom < 14) map.setZoom?.(14);
-    marker.setAnimation?.(window.google?.maps?.Animation?.BOUNCE ?? null);
-    const timeout = window.setTimeout(() => marker.setAnimation?.(null), 700);
-    return () => window.clearTimeout(timeout);
-  }, [activePointId]);
+    if (!activePointId || status !== "ready") return;
+    const marker = markers.current.get(activePointId);
+    if (!marker) return;
+    markers.current.forEach((other) => {
+      if (other !== marker && other.getPopup()?.isOpen()) other.togglePopup();
+    });
+    if (!marker.getPopup()?.isOpen()) marker.togglePopup();
+    mapRef.current?.easeTo({
+      center: marker.getLngLat(),
+      zoom: Math.max(mapRef.current.getZoom(), 14),
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 450,
+    });
+  }, [activePointId, status]);
 
-  if (points.length === 0 || empty) return null;
-  if (error) {
-    return (
-      <div
-        className="grid place-items-center rounded-2xl border border-border bg-secondary/40 text-sm text-muted-foreground"
-        style={{ height }}
-      >
-        {error}
-      </div>
-    );
-  }
+  const missing = points.length - points.filter(hasCoordinates).length;
+  const empty = pointsKey === "[]";
   return (
-    <div className="overflow-hidden rounded-2xl border border-border shadow-[var(--shadow-soft)]">
-      <div ref={ref} style={{ height }} className="w-full bg-secondary/40" />
+    <div className="relative overflow-hidden rounded-2xl border border-border">
+      <div
+        ref={container}
+        style={{ height }}
+        className="w-full bg-secondary/40"
+        aria-label={lang === "ar" ? "خريطة الأماكن" : "Places map"}
+      />
+      {(empty || status !== "ready") && (
+        <div
+          role="status"
+          className="absolute inset-0 grid place-content-center gap-3 bg-background/90 p-6 text-center text-sm"
+        >
+          {empty
+            ? lang === "ar"
+              ? "لم تُحدَّد إحداثيات هذه الأماكن بعد. التفاصيل متاحة في القائمة."
+              : "These places have no saved coordinates yet. See the list for details."
+            : status === "error"
+              ? lang === "ar"
+                ? "تعذر تحميل الخريطة. تحقق من الاتصال أو استخدم القائمة."
+                : "Map unavailable. Check your connection or use the list."
+              : lang === "ar"
+                ? "جارٍ تحميل الخريطة…"
+                : "Loading map…"}
+          {!empty && status === "error" && (
+            <button
+              type="button"
+              onClick={() => setAttempt((v) => v + 1)}
+              className="rounded-lg border p-2"
+            >
+              {lang === "ar" ? "إعادة المحاولة" : "Retry"}
+            </button>
+          )}
+        </div>
+      )}
+      {!empty && missing > 0 && (
+        <p className="p-2 text-xs text-muted-foreground" role="status">
+          {lang === "ar"
+            ? `عدد المواقع التي تحتاج إحداثيات: ${missing}`
+            : `${missing} locations still need coordinates`}
+        </p>
+      )}
     </div>
   );
 }

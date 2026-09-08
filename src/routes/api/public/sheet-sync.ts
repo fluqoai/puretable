@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
- * Hourly auto sync of the saved Google Sheet.
+ * Daily auto sync of the saved Google Sheet.
  * Called by a standard scheduler (Vercel Cron in production) with CRON_SECRET.
  */
 export const Route = createFileRoute("/api/public/sheet-sync")({
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/public/sheet-sync")({
           // waits for the admin in the import screen.
           const results = await applyPlan(
             supabaseAdmin,
-            plan.filter((p) => p.action === "create" || p.action === "update"),
+            plan.filter((p) => p.status === "ready" && (p.action === "create" || p.action === "update")),
           );
           await writeSheetSync(supabaseAdmin, { ...cfg, lastRun: new Date().toISOString() });
           return Response.json({ ok: true, summary: summarize(plan), imported: results.filter((r) => r.ok).length });

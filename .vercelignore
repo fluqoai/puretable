@@ -1,0 +1,10 @@
+.git
+.env*
+!.env.example
+node_modules
+.output
+.tanstack
+tmp
+biz.png
+Userskhayrat.git-credentials-safecredentials
+supabase/.temp

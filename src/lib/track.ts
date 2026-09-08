@@ -1,3 +1,4 @@
+import { capturePosthog } from "./posthog-client";
 /**
  * First-party analytics for Pure Table.
  *
@@ -60,6 +61,7 @@ export type TrackPayload = {
 
 export function track(payload: TrackPayload) {
   if (typeof window === "undefined") return;
+  if (payload.event_type !== "page_view" && payload.event_type !== "heartbeat") capturePosthog(payload.event_type, { business_slug: payload.business_slug, platform: payload.platform });
   const body = JSON.stringify({
     ...payload,
     path: window.location.pathname,
@@ -114,10 +116,18 @@ export function installGoAugmenter() {
     if (isAdminVisitor()) u.searchParams.set("a", "1");
     el.setAttribute("href", `${u.pathname}?${u.searchParams.toString()}`);
   };
+  const captureClick = (event: MouseEvent) => {
+    const link = (event.target as HTMLElement | null)?.closest?.("a[href^='/go?']") as HTMLAnchorElement | null;
+    if (!link) return;
+    const params = new URL(link.href).searchParams;
+    capturePosthog(params.get("type") || "outbound_click", { business_slug: params.get("b"), platform: params.get("platform") });
+  };
+  document.addEventListener("click", captureClick, true);
   document.addEventListener("mousedown", handler, true);
   document.addEventListener("touchstart", handler, true);
   document.addEventListener("keydown", handler, true);
   return () => {
+    document.removeEventListener("click", captureClick, true);
     document.removeEventListener("mousedown", handler, true);
     document.removeEventListener("touchstart", handler, true);
     document.removeEventListener("keydown", handler, true);

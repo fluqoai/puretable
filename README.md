@@ -7,7 +7,8 @@ Pure Table is a bilingual directory for finding gluten-free restaurants, cafes, 
 - React 19 and TanStack Start
 - Vite and Nitro
 - Supabase Database, Auth, and Storage
-- Google Maps JavaScript API and Places API
+- Mapbox GL JS (maps and manual coordinate picking)
+- PostHog EU (anonymous product analytics)
 - Tailwind CSS
 - Model Context Protocol TypeScript SDK
 
@@ -23,12 +24,15 @@ Environment files containing real credentials are intentionally ignored by Git. 
 
 Build with `npm run build`. The Nitro server output is compatible with standard Node.js hosting and platforms such as Vercel. Configure all values from `.env.example` in the hosting provider rather than committing them.
 
-Google Maps uses two separate keys in production:
+### Maps and analytics
 
-- `VITE_GOOGLE_MAPS_API_KEY` is public and restricted by the site's HTTP referrers to Maps JavaScript API.
-- `GOOGLE_MAPS_API_KEY` is server-only and restricted to Places API (New). Do not apply browser-referrer restrictions to this key, because server requests have no browser referrer.
+- `VITE_MAPBOX_ACCESS_TOKEN`: a public Mapbox token. Restrict allowed URLs in Mapbox to your production/preview domains and localhost if needed. Maps load only when mounted.
+- `VITE_POSTHOG_KEY`: the PostHog project ingestion key (not a personal API key).
+- `VITE_POSTHOG_HOST=https://eu.i.posthog.com`: European ingestion endpoint.
 
-The admin Google Maps preview accepts a place name or an official Google Maps link. Search, duplicate checks, and previews are read-only; selected data is persisted only by an explicit Save action.
+Place entry is manual: enter the name, address, phone, website and opening hours, then pick the exact coordinates on Mapbox. Branch edits are saved only after pressing Save. There is no Google Places search, geocoding, or automated enrichment. CSV/Sheets previews preserve supplied details and flag missing fields. Existing external directions links and stored place IDs remain intact for data compatibility.
+
+PostHog records explicit page views and selected interactions without autocapture, session recordings, personal profiles, raw search text, or admin/auth pages. It respects Do Not Track and uses memory-only identity. Existing first-party admin reports remain the source of truth; PostHog is a separate product analytics view, not a migration of historical Google Analytics data.
 
 ## Product scope
 

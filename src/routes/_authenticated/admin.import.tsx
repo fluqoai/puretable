@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { signCoverUploadUrl } from "@/lib/admin.functions";
 import {
   attachBulkCovers, commitImport, getSheetSync, previewCsvImport, previewSheetImport,
-  resolveImportRow, retryImportRow, saveSheetSync, syncSheetNow,
+  retryImportRow, saveSheetSync, syncSheetNow,
 } from "@/lib/import.functions";
 
 import {
@@ -21,7 +21,7 @@ type Plan = Awaited<ReturnType<typeof previewCsvImport>>;
 type PlanRow = Plan["plan"][number];
 type Results = Awaited<ReturnType<typeof commitImport>>;
 
-const TEMPLATE_HEADERS = ["name", "category", "city", "instagram", "hungerstation", "jahez", "thechefz", "toyou", "image_url"];
+const TEMPLATE_HEADERS = ["name", "category", "city", "address", "lat", "lng", "phone", "website", "hours_sun", "hours_mon", "hours_tue", "hours_wed", "hours_thu", "hours_fri", "hours_sat", "instagram", "hungerstation", "jahez", "thechefz", "toyou", "image_url"];
 
 function summarizeRows(rows: PlanRow[]): Plan["summary"] {
   return {
@@ -40,7 +40,6 @@ function ImportPage() {
   const commit = useServerFn(commitImport);
   const signUpload = useServerFn(signCoverUploadUrl);
   const attach = useServerFn(attachBulkCovers);
-  const resolveRow = useServerFn(resolveImportRow);
   const retryRow = useServerFn(retryImportRow);
   const loadSync = useServerFn(getSheetSync);
   const saveSync = useServerFn(saveSheetSync);
@@ -128,13 +127,6 @@ function ImportPage() {
     });
   }
 
-  async function onChoose(row: PlanRow, placeId: string) {
-    setRowBusy(row.index);
-    const updated = await run("choose", () => resolveRow({ data: { row, placeId } }));
-    setRowBusy(null);
-    if (updated) replaceRow(row.index, updated as PlanRow);
-  }
-
   async function onRetry(row: PlanRow) {
     setRowBusy(row.index);
     const updated = await run("retry", () => retryRow({ data: { row } }));
@@ -194,8 +186,7 @@ function ImportPage() {
       <div>
         <h1 className="font-display text-2xl font-semibold">Bulk import</h1>
         <p className="text-sm text-muted-foreground">
-          Keep only <strong>name</strong>, <strong>category</strong> and <strong>city</strong> in your sheet — everything
-          else is completed from Google Maps. Duplicates are never created; existing places are updated instead.
+          Include <strong>name</strong>, <strong>category</strong>, <strong>city</strong> and all available details in your sheet. Review the preview before importing; missing details can be added manually.
         </p>
       </div>
 
@@ -221,8 +212,7 @@ function ImportPage() {
       {tab === "sheet" && (
         <Card title="Sync from Google Sheets">
           <p className="text-sm text-muted-foreground">
-            Paste the link to your sheet and press <strong>Sync now</strong>. Make sure the sheet is shared with the
-            Google account you connected.
+            Paste the link to your sheet and press <strong>Sync now</strong>. The sheet must be publicly readable using its CSV export; no connected Google account is required.
           </p>
 
           <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)}
@@ -235,7 +225,7 @@ function ImportPage() {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={auto} onChange={(e) => onSaveSync(e.target.checked)}
               className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]" />
-            Auto sync every hour (only rows with a confident Google Maps match are imported automatically)
+            Auto sync every day (only complete rows are imported automatically)
           </label>
           {syncCfg?.lastRun && (
             <p className="text-xs text-muted-foreground">Last sync: {new Date(syncCfg.lastRun).toLocaleString()}</p>
@@ -354,19 +344,6 @@ function ImportPage() {
                       <StatusBadge status={r.status} action={r.action} />
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {r.status === "choose" ? (
-                        <div className="space-y-1">
-                          <div className="font-medium text-foreground">Which place is it?</div>
-                          {(r.candidates ?? []).map((c) => (
-                            <button key={c.placeId} onClick={() => onChoose(r, c.placeId)}
-                              disabled={busy !== null}
-                              className="block w-full rounded-lg border border-border px-2 py-1.5 text-start hover:border-primary/50 disabled:opacity-60">
-                              <span className="block font-medium text-foreground">{c.name}</span>
-                              <span className="block truncate">{c.address}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
                         <div className="space-y-1">
                           {r.errors.length > 0 && <div className="text-destructive">{r.errors.join("; ")}</div>}
                           {r.missing.length > 0 && (
@@ -374,19 +351,17 @@ function ImportPage() {
                           )}
                           <div>
                             {r.matchedBy ? `Matched existing by ${r.matchedBy}` : "New business"}
-                            {r.autofilled ? " · autofilled from Google Maps" : ""}
                             {r.branches.length ? ` · ${r.branches.length} branch(es)` : ""}
                             {r.imageUrl ? " · photo" : ""}
                           </div>
                         </div>
-                      )}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1.5">
                         <button onClick={() => onRetry(r)} disabled={busy !== null}
                           className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs hover:border-primary/40 disabled:opacity-60">
                           {rowBusy === r.index ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
-                          Retry
+                          Recheck
                         </button>
                         <button onClick={() => onIgnore(r)}
                           className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground">

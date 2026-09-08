@@ -1,13 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { extractUrl } from "@/lib/link-url";
-import {
-  placeArabic,
-  placeDetails,
-  searchBranches,
-  searchPlaces,
-  type PlaceBranch,
-  type PlaceCandidate,
-} from "@/lib/places.server";
 import { findCity, regionForCity } from "@/lib/saudi";
 import { normalizeCategory } from "@/data/businesses";
 
@@ -41,12 +33,10 @@ export type RowPlan = {
   links: { platform: string; url: string; product_name: string | null; label: string | null }[];
   imageUrl: string | null;
   errors: string[];
-  /** Fields Google could not provide — shown in amber, saved as review notes. */
+  /** Fields missing from the uploaded file — shown in amber, saved as review notes. */
   missing: string[];
   branches: PlanBranch[];
   placeId: string | null;
-  autofilled?: boolean;
-  candidates?: PlaceCandidate[];
 };
 
 const PLATFORMS = ["hungerstation", "jahez", "thechefz", "toyou", "keeta", "website", "instagram", "x", "tiktok", "snapchat", "facebook", "whatsapp", "email", "maps", "phone"] as const;
@@ -173,7 +163,7 @@ type ExistingBusiness = {
   hours: Record<string, string> | null;
 };
 
-/** Loose name comparison so Google can't silently attach an unrelated place. */
+/** Normalize imported names for duplicate checks. */
 function normalizeName(v: string) {
   return v
     .toLowerCase()
@@ -183,38 +173,6 @@ function normalizeName(v: string) {
     .replace(/[ةه]/g, "ه")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
-}
-
-export function namesLookAlike(a: string, b: string) {
-  const x = normalizeName(a);
-  const y = normalizeName(b);
-  if (!x || !y) return false;
-  if (x === y || x.includes(y) || y.includes(x)) return true;
-  const xt = new Set(x.split(" ").filter((t) => t.length > 2));
-  const yt = x === y ? xt : new Set(y.split(" ").filter((t) => t.length > 2));
-  let shared = 0;
-  for (const t of xt) if (yt.has(t)) shared++;
-  return shared > 0 && shared >= Math.min(xt.size, yt.size) / 2;
-}
-
-const CITY_ALIASES: Record<string, string[]> = {
-  riyadh: ["riyadh", "الرياض"],
-  jeddah: ["jeddah", "jedda", "جدة", "جده"],
-  dammam: ["dammam", "الدمام"],
-  khobar: ["khobar", "al khobar", "الخبر"],
-  makkah: ["makkah", "mecca", "مكة", "مكه"],
-  madinah: ["madinah", "medina", "المدينة", "المدينه"],
-};
-
-/** True when a Google result plausibly sits in the city from the sheet. */
-export function cityMatches(sheetCity: string | null, candidate: { city: string | null; address: string }) {
-  if (!sheetCity) return true;
-  const hay = `${candidate.city ?? ""} ${candidate.address}`.toLowerCase();
-  const key = Object.keys(CITY_ALIASES).find((k) =>
-    CITY_ALIASES[k]!.some((a) => sheetCity.toLowerCase().includes(a.toLowerCase())),
-  );
-  const aliases = key ? CITY_ALIASES[key]! : [sheetCity];
-  return aliases.some((a) => hay.includes(a.toLowerCase()));
 }
 
 /** name + city key used to detect duplicates. */
@@ -375,24 +333,11 @@ export function summarize(plan: RowPlan[]) {
   };
 }
 
-/** Merge Google Place data into a plan row without overwriting sheet values. */
-export function mergePlaceFields(
-  row: RowPlan,
-  data: { fields: Record<string, string | number>; arabic: Record<string, string>; hours: Record<string, string> },
-) {
-  const { name_from_google: _ignored, ...rest } = data.fields;
-  for (const [k, v] of Object.entries({ ...rest, ...data.arabic })) {
-    if (row.fields[k] === undefined || row.fields[k] === "") row.fields[k] = v;
-  }
-  if (Object.keys(data.hours).length && !row.fields["hours"]) row.fields["hours"] = data.hours;
-  row.autofilled = true;
-  row.candidates = [];
-}
-
+/** Details that require administrator review when missing from the file. */
 const REVIEW_FIELDS: [string, string][] = [
   ["address", "address"],
   ["lat", "location coordinates"],
-  ["maps_url", "Google Maps link"],
+  ["lng", "longitude"],
   ["phone", "phone number"],
   ["website", "website"],
   ["instagram", "Instagram"],
@@ -418,7 +363,7 @@ export function scoreRow(row: RowPlan) {
   const locationless = isLocationless(row);
   const missing: string[] = [];
   for (const [key, label] of REVIEW_FIELDS) {
-    if (locationless && ["address", "lat", "maps_url", "hours"].includes(key)) continue;
+    if (locationless && ["address", "lat", "lng", "hours"].includes(key)) continue;
     const v = row.fields[key];
     const empty = v === undefined || v === "" || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0);
     if (empty) missing.push(label);
@@ -431,92 +376,16 @@ export function scoreRow(row: RowPlan) {
   row.fields["review_notes"] = missing;
 }
 
-/**
- * Complete one row from Google Maps using name + city + category.
- * Never throws: a lookup failure downgrades the row instead of dropping it.
- */
+/** Validate the supplied data locally; never fetch or infer business details. */
 export async function enrichRow(row: RowPlan): Promise<RowPlan> {
-  if (row.action === "skip") { scoreRow(row); return row; }
-  applyLocationlessRules(row);
-
-  const city = typeof row.fields["city"] === "string" ? (row.fields["city"] as string) : null;
-  const alreadyComplete = !!row.fields["address"] && row.fields["lat"] !== undefined && !!row.fields["phone"];
-
-  if (!isLocationless(row) && row.name && !alreadyComplete) {
-    try {
-      const category = typeof row.fields["category"] === "string" ? (row.fields["category"] as string) : null;
-      const all = await searchPlaces([row.name, category].filter(Boolean).join(" "), city);
-      const candidates = all.filter((c) => namesLookAlike(row.name, c.name) && cityMatches(city, c));
-      const pool = candidates.length ? candidates : all.filter((c) => namesLookAlike(row.name, c.name));
-
-      if (pool.length === 0) {
-        row.errors.push(
-          `No Google Maps match for "${row.name}"${city ? ` in ${city}` : ""} — fill the details manually or retry`,
-        );
-        row.status = "failed";
-        row.action = "skip";
-      } else if (pool.length > 1) {
-        row.candidates = pool;
-        row.action = "choose";
-        row.status = "choose";
-        return row;
-      } else {
-        await applyPlace(row, pool[0]!.placeId, city);
-      }
-    } catch (e) {
-      row.errors.push(`Google Maps lookup failed: ${e instanceof Error ? e.message : "unknown error"}`);
-      row.status = "failed";
-      row.action = "skip";
-    }
-  }
-
-  if (row.action !== "skip" && row.action !== "choose") {
-    if (!row.matchedId && !row.fields["city"]) {
-      row.errors.push("Missing city");
-      row.status = "failed";
-      row.action = "skip";
-    }
+  if (row.action === "skip") return row;
+  if (!row.matchedId && !row.fields["city"]) {
+    row.errors.push("Missing city");
+    row.status = "failed";
+    row.action = "skip";
   }
   scoreRow(row);
   return row;
-}
-
-/** Pull details + Arabic + photo + every branch for one Google place. */
-export async function applyPlace(row: RowPlan, placeId: string, city: string | null) {
-  const cat = typeof row.fields["category"] === "string" ? (row.fields["category"] as string) : null;
-  const [details, arabic] = await Promise.all([placeDetails(placeId, { category: cat }), placeArabic(placeId)]);
-  mergePlaceFields(row, { fields: details.fields, arabic, hours: details.hours });
-  row.placeId = placeId;
-  if (!row.imageUrl && details.photoUrl) row.imageUrl = details.photoUrl;
-  // Region is always inferred from the resolved city/address.
-  const resolvedRegion =
-    regionForCity(typeof row.fields["city"] === "string" ? (row.fields["city"] as string) : city) ??
-    regionForCity(typeof row.fields["address"] === "string" ? (row.fields["address"] as string) : null);
-  if (resolvedRegion) row.fields["region"] = resolvedRegion;
-
-
-  try {
-    const found = await searchBranches(row.name, city);
-    const branches = found.filter((b) => namesLookAlike(row.name, b.name));
-    row.branches = branches.map(toPlanBranch);
-  } catch {
-    row.branches = [];
-  }
-  scoreRow(row);
-}
-
-function toPlanBranch(b: PlaceBranch): PlanBranch {
-  return {
-    placeId: b.placeId,
-    name: b.name,
-    address: b.address,
-    city: b.city,
-    lat: b.lat,
-    lng: b.lng,
-    mapsUrl: b.mapsUrl,
-    phone: b.phone,
-    hours: b.hours,
-  };
 }
 
 export async function ingestImage(url: string, slug: string): Promise<string | null> {
@@ -760,7 +629,7 @@ export async function attachCoversByFilename(
 }
 
 /**
- * Saved Google Sheet used by the Sync now button and the hourly auto sync.
+ * Saved Google Sheet used by the Sync now button and the daily auto sync.
  *
  * These settings live in `app_config` (admin-only) — they used to sit inside
  * `site_settings.content`, which every visitor can read.
