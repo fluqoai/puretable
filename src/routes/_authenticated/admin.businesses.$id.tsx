@@ -1,3 +1,6 @@
+import { usePlanDefinitions } from "@/hooks/use-plan-definitions";
+import { toFeatures, planSummary } from "@/lib/subscriptions";
+import { BusinessPlanControl } from "@/components/admin/BusinessPlanControl";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -43,9 +46,7 @@ export const Route = createFileRoute("/_authenticated/admin/businesses/$id")({
 import {
   PLAN_FEATURES,
   PLAN_LABELS,
-  PLAN_SUMMARIES,
   PLAN_TIERS,
-  branchLimitLabel,
   type PlanTier,
 } from "@/lib/plans";
 
@@ -90,7 +91,6 @@ const DEFAULT_FORM = {
   photos: [] as string[],
 };
 
-const PLAN_OPTIONS = PLAN_TIERS.map((value) => ({ value, label: PLAN_LABELS[value] }));
 
 /** Default visitor-facing text for the orange (shared kitchen) dot — editable per business. */
 const DEFAULT_SHARED_NOTE = "مطبخ مشترك لكن المطبخ والأدوات مفصولة";
@@ -137,6 +137,8 @@ const DAYS = [
 ] as const;
 
 function EditBusiness() {
+  const { data: planCatalog } = usePlanDefinitions();
+  const planFeatures = (tier: PlanTier) => planCatalog ? toFeatures(planCatalog[tier]) : PLAN_FEATURES[tier];
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -174,6 +176,7 @@ function EditBusiness() {
   });
 
   const [form, setForm] = useState<any>(DEFAULT_FORM);
+  const initializedBusiness = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -183,7 +186,8 @@ function EditBusiness() {
   const galleryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (existing) {
+    if (existing && initializedBusiness.current !== existing.id) {
+      initializedBusiness.current = existing.id;
       setForm({
         ...DEFAULT_FORM,
         ...existing,
@@ -199,8 +203,6 @@ function EditBusiness() {
     .slice()
     .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const selectedPlan = (form.plan ?? "free") as PlanTier;
-  const publishedBranchCount = branches.filter((branch: any) => branch.published).length;
-  const selectedBranchLimit = PLAN_FEATURES[selectedPlan].branchLimit;
 
   // The region is never edited by hand — it is derived from the selected city.
   const regionKey: string | null = regionForCity(form.city) ?? form.region ?? null;
@@ -331,7 +333,7 @@ function EditBusiness() {
     setUploading(true);
     setErr(null);
     try {
-      const limit = PLAN_FEATURES[(form.plan ?? "free") as PlanTier].photoLimit - 1;
+      const limit = planFeatures((form.plan ?? "free") as PlanTier).photoLimit - 1;
       const current: string[] = form.photos ?? [];
       const room = Math.max(0, limit - current.length);
       const picked = Array.from(files).slice(0, room);
@@ -460,7 +462,7 @@ function EditBusiness() {
           <p className="mb-3 text-xs text-muted-foreground">
             عدد الصور مرتبط بالباقة (صورة الغلاف محسوبة ضمنها): Free = 1، Pro / الأسر المنتجة = 8،
             Premium = 15. الحد الحالي لهذه الباقة:{" "}
-            {PLAN_FEATURES[(form.plan ?? "free") as PlanTier].photoLimit} صورة — المستخدم الآن:{" "}
+            {planFeatures((form.plan ?? "free") as PlanTier).photoLimit} صورة — المستخدم الآن:{" "}
             {1 + ((form.photos ?? []) as string[]).length}.
           </p>
           {((form.photos ?? []) as string[]).length > 0 && (
@@ -501,7 +503,7 @@ function EditBusiness() {
             disabled={
               uploading ||
               1 + ((form.photos ?? []) as string[]).length >=
-                PLAN_FEATURES[(form.plan ?? "free") as PlanTier].photoLimit
+                planFeatures((form.plan ?? "free") as PlanTier).photoLimit
             }
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary/40 disabled:opacity-50"
           >
@@ -681,41 +683,15 @@ function EditBusiness() {
         </Section>
 
         <Section title="الباقة / Subscription plan">
-          <p className="mb-3 text-xs text-muted-foreground">
-            الباقة تُحدَّد يدويًا من هنا فقط — لا يوجد دفع إلكتروني ولا تجديد آلي، ولا تظهر أي أسعار
-            للزوار.
-          </p>
-          <div className="grid gap-3 md:grid-cols-3">
-            {PLAN_OPTIONS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => up("plan", p.value)}
-                className={`rounded-xl border p-4 text-start text-sm transition ${
-                  selectedPlan === p.value
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card hover:border-primary/40"
-                }`}
-              >
-                <span className="block font-semibold">{p.label}</span>
-                <span
-                  className={`mt-1 block text-xs ${selectedPlan === p.value ? "text-primary-foreground/80" : "text-muted-foreground"}`}
-                >
-                  {PLAN_SUMMARIES[p.value]}
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 rounded-xl bg-secondary/60 p-3 text-xs text-muted-foreground">
-            حد الفروع الظاهرة في الباقة المختارة:{" "}
-            <strong className="text-foreground">{branchLimitLabel(selectedPlan)}</strong>.
-            {selectedBranchLimit !== null && publishedBranchCount > selectedBranchLimit && (
-              <span className="mt-1 block text-amber-700">
-                عند الحفظ سيُبقي النظام {selectedBranchLimit} ويخفي{" "}
-                {publishedBranchCount - selectedBranchLimit} تلقائياً دون حذفها.
-              </span>
-            )}
-          </div>
+          {isNew ? <>
+            <label className="grid gap-2 text-sm">الباقة عند إنشاء العمل
+              <select value={selectedPlan} onChange={(event) => up("plan", event.target.value)} className="rounded-lg border bg-background p-3">
+                {PLAN_TIERS.map((tier) => <option key={tier} value={tier}>{PLAN_LABELS[tier]}</option>)}
+              </select>
+            </label>
+            <p className="mt-2 text-xs text-muted-foreground">{planSummary(planFeatures(selectedPlan))}</p>
+          </> : <BusinessPlanControl businessId={id} name={form.name} currentPlan={existing?.plan ?? selectedPlan}
+            onChanged={(tier) => { up("plan", tier); void qc.invalidateQueries({ queryKey: ["admin-business", id] }); }} />}
         </Section>
 
         {!isNew && <BusinessPerformance businessId={id} name={form.name} plan={selectedPlan} />}

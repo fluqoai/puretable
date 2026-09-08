@@ -1,3 +1,6 @@
+import { readPlanCatalog } from "./subscriptions.server";
+import { toFeatures } from "./subscriptions";
+import { planOf } from "./plans";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   mapDbBusiness,
@@ -84,10 +87,12 @@ export async function fetchPublicBusinesses(): Promise<Business[]> {
     { data: rows, error: businessesError },
     { data: links, error: linksError },
     { data: branches, error: branchesError },
+    catalog,
   ] = await Promise.all([
     client.from("businesses").select("*").order("created_at", { ascending: true }),
     client.from("business_links").select("*"),
     client.from("business_branches").select("*").eq("published", true),
+    readPlanCatalog(client),
   ]);
   if (businessesError) throw new Error(businessesError.message);
   if (linksError) throw new Error(linksError.message);
@@ -110,7 +115,7 @@ export async function fetchPublicBusinesses(): Promise<Business[]> {
     branchesByBusiness.set(branch.business_id, current);
   }
   return (rows ?? []).map((row) =>
-    mapDbBusiness(row as never, byBusiness.get(row.id) ?? [], branchesByBusiness.get(row.id) ?? []),
+    ({ ...mapDbBusiness(row as never, byBusiness.get(row.id) ?? [], branchesByBusiness.get(row.id) ?? []), entitlements: toFeatures(catalog[planOf(row)]) }),
   );
 }
 
@@ -123,15 +128,16 @@ export async function fetchPublicBusinessBySlug(slug: string): Promise<Business 
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!row) return null;
-  const [{ data: links, error: linksError }, { data: branches, error: branchesError }] =
+  const [{ data: links, error: linksError }, { data: branches, error: branchesError }, catalog] =
     await Promise.all([
       client.from("business_links").select("*").eq("business_id", row.id),
       client.from("business_branches").select("*").eq("business_id", row.id).eq("published", true),
+      readPlanCatalog(client),
     ]);
   if (linksError) throw new Error(linksError.message);
   if (branchesError) throw new Error(branchesError.message);
   const mappedLinks = (links ?? []).map(mapLink);
-  return mapDbBusiness(
+  const business = mapDbBusiness(
     row as never,
     mappedLinks.filter((l) => !l.branch_id),
     (branches ?? []).map((b) =>
@@ -141,6 +147,7 @@ export async function fetchPublicBusinessBySlug(slug: string): Promise<Business 
       ),
     ),
   );
+  return { ...business, entitlements: toFeatures(catalog[planOf(row)]) };
 }
 
 export async function assertAdmin(client: SupabaseClient, userId: string) {

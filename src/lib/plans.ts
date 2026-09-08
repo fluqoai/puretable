@@ -2,8 +2,8 @@
  * Subscription packages.
  *
  * Plans are set manually by an admin (no online payment, no renewal). This
- * module is the single place that decides what each package unlocks, so the
- * public pages, the search ranking and the admin analytics all agree.
+ * module defines fixed tier identities and initial defaults. Live entitlements
+ * come from subscription_plans via subscriptions.server.ts, for every business.
  *
  * "أسر منتجة" remains a business category, not a paid subscription tier.
  */
@@ -82,7 +82,7 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
   },
 };
 
-export function planOf(b: { plan?: string | null } | null | undefined): PlanTier {
+export function planOf(b: PlanAccess | null | undefined): PlanTier {
   // Read-only compatibility for legacy rows. "Family" is never exposed as a
   // package; old subscription values are treated as Pro while "أسر منتجة"
   // remains a normal business category (`home`).
@@ -91,23 +91,25 @@ export function planOf(b: { plan?: string | null } | null | undefined): PlanTier
   return PLAN_TIERS.includes(p) ? p : "free";
 }
 
-export function featuresOf(b: { plan?: string | null } | null | undefined): PlanFeatures {
-  return PLAN_FEATURES[planOf(b)];
+export type PlanAccess = { plan?: string | null; entitlements?: PlanFeatures };
+
+export function featuresOf(b: PlanAccess | null | undefined): PlanFeatures {
+  return b?.entitlements ?? PLAN_FEATURES[planOf(b)];
 }
 
 /** Sort key used by search and listing pages: premium > pro > free. */
-export function planRank(b: { plan?: string | null }) {
+export function planRank(b: PlanAccess) {
   return featuresOf(b).rank;
 }
 
 /** Remaining published branch slots for the package; null means unlimited. */
-export function remainingBranchSlots(plan: PlanTier, publishedCount: number): number | null {
-  const limit = PLAN_FEATURES[plan].branchLimit;
+export function remainingBranchSlots(plan: PlanTier, publishedCount: number, features = PLAN_FEATURES[plan]): number | null {
+  const limit = features.branchLimit;
   return limit === null ? null : Math.max(0, limit - publishedCount);
 }
 
-export function branchLimitLabel(plan: PlanTier): string {
-  const limit = PLAN_FEATURES[plan].branchLimit;
+export function branchLimitLabel(plan: PlanTier, features = PLAN_FEATURES[plan]): string {
+  const limit = features.branchLimit;
   return limit === null ? "غير محدود" : String(limit);
 }
 
@@ -123,14 +125,14 @@ export function rankByPlan<T extends { plan?: string | null }>(items: T[]): T[] 
 }
 
 /** Description shown to visitors — trimmed on the Free package. */
-export function visibleDescription(b: { plan?: string | null }, text: string) {
+export function visibleDescription(b: PlanAccess, text: string) {
   const limit = featuresOf(b).descriptionLimit;
   if (!limit || text.length <= limit) return text;
   return `${text.slice(0, limit).trimEnd()}…`;
 }
 
 /** Cover + gallery photos a visitor may see, capped by the package. */
-export function visiblePhotos(b: { plan?: string | null; cover?: string | null; photos?: string[] | null }) {
+export function visiblePhotos(b: PlanAccess & { cover?: string | null; photos?: string[] | null }) {
   const all = [b.cover, ...(b.photos ?? [])].filter((p): p is string => !!p);
   return Array.from(new Set(all)).slice(0, featuresOf(b).photoLimit);
 }

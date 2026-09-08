@@ -18,13 +18,8 @@ function makeSlug(name: string) {
 }
 
 function readableBranchError(message: string) {
-  if (message.includes("Branch limit reached for free")) {
-    return "باقة Free تسمح بإظهار فرع واحد فقط. أخفِ الفرع الحالي أو ارفع الباقة أولاً.";
-  }
-  if (message.includes("Branch limit reached for pro")) {
-    return "باقة Pro تسمح بإظهار 3 فروع فقط. أخفِ أحد الفروع الحالية أو ارفع الباقة إلى Premium.";
-  }
-  return message;
+  const match = message.match(/Branch limit reached for (free|pro|premium) plan \(maximum (\d+)\)/);
+  return match ? `الحد الحالي لباقة ${match[1]} هو ${match[2]} فروع منشورة. أخفِ فرعاً أو عدّل الباقة من قسم الاشتراكات.` : message;
 }
 
 export const upsertBusiness = createServerFn({ method: "POST" })

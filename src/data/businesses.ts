@@ -4,7 +4,7 @@ import bakeryImg from "@/assets/bakery.jpg";
 import homeImg from "@/assets/home-business.jpg";
 import dessertImg from "@/assets/dessert.jpg";
 import { regionForCity } from "@/lib/saudi";
-import { planOf } from "@/lib/plans";
+import { planOf, type PlanFeatures } from "@/lib/plans";
 
 export type Category =
   | "restaurant"
@@ -91,6 +91,8 @@ export type { PlanTier } from "@/lib/plans";
 import type { PlanTier } from "@/lib/plans";
 
 export type Business = {
+  /** Resolved by the server from the current shared plan definition. */
+  entitlements?: PlanFeatures;
   id: string; // slug — used in URLs
   dbId?: string; // uuid
   plan?: PlanTier;

@@ -36,4 +36,12 @@ PostHog records explicit page views and selected interactions without autocaptur
 
 ## Product scope
 
+### Admin-controlled subscriptions
+
+`/admin/subscriptions` manages business assignments and shared Free/Pro/Premium definitions, without billing. Edit a business plan using Current Plan, select a tier, then Apply. Edit shared branch/photo/description limits, extra contact links and analytics access in the plan definitions tab. Every business resolves its entitlements from `public.subscription_plans`; no per-business feature switches are copied.
+
+Apply `20260908222749_managed_subscription_plans.sql` before deploying this feature. Plan writes require an authenticated admin and RLS, with revision checks preventing concurrent edits from silently overwriting each other. Database triggers reconcile branch visibility on assignment and definition changes. Excess branches are hidden, never deleted; upgrades restore only automatically hidden branches. Basic phone/social details remain available, search ranking remains Premium → Pro → Free, and automatic report delivery is not implemented.
+
+Default branch limits are Free: 1, Pro: 3, Premium: unlimited. Definition updates take effect on subsequent data loads; the admin catalog refreshes every 30 seconds. Test coverage includes a rollback-only database scenario for upgrades, downgrades, shared limit changes, restoration and non-admin access denial, alongside `npm test`.
+
 The platform helps visitors discover trusted gluten-free options and contact or book with businesses. Payments are not processed inside Pure Table.

@@ -39,6 +39,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as ApiPublicSheetSyncRouteImport } from './routes/api/public/sheet-sync'
 import { Route as ApiPublicEventRouteImport } from './routes/api/public/event'
 import { Route as ApiPublicCoverRouteImport } from './routes/api/public/cover'
+import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_authenticated/admin.subscriptions'
 import { Route as AuthenticatedAdminMessagesRouteImport } from './routes/_authenticated/admin.messages'
 import { Route as AuthenticatedAdminLeadsRouteImport } from './routes/_authenticated/admin.leads'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
@@ -197,6 +198,12 @@ const ApiPublicCoverRoute = ApiPublicCoverRouteImport.update({
   path: '/api/public/cover',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminSubscriptionsRoute =
+  AuthenticatedAdminSubscriptionsRouteImport.update({
+    id: '/subscriptions',
+    path: '/subscriptions',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminMessagesRoute =
   AuthenticatedAdminMessagesRouteImport.update({
     id: '/messages',
@@ -274,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
+  '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -312,6 +320,7 @@ export interface FileRoutesByTo {
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
+  '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -353,6 +362,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/_authenticated/admin/messages': typeof AuthenticatedAdminMessagesRoute
+  '/_authenticated/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/admin/import'
     | '/admin/leads'
     | '/admin/messages'
+    | '/admin/subscriptions'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/admin/import'
     | '/admin/leads'
     | '/admin/messages'
+    | '/admin/subscriptions'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -472,6 +484,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/leads'
     | '/_authenticated/admin/messages'
+    | '/_authenticated/admin/subscriptions'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -724,6 +737,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCoverRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/subscriptions': {
+      id: '/_authenticated/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AuthenticatedAdminSubscriptionsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/messages': {
       id: '/_authenticated/admin/messages'
       path: '/messages'
@@ -789,6 +809,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
   AuthenticatedAdminLeadsRoute: typeof AuthenticatedAdminLeadsRoute
   AuthenticatedAdminMessagesRoute: typeof AuthenticatedAdminMessagesRoute
+  AuthenticatedAdminSubscriptionsRoute: typeof AuthenticatedAdminSubscriptionsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminBusinessesIdRoute: typeof AuthenticatedAdminBusinessesIdRoute
   AuthenticatedAdminBusinessesIndexRoute: typeof AuthenticatedAdminBusinessesIndexRoute
@@ -800,6 +821,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
   AuthenticatedAdminLeadsRoute: AuthenticatedAdminLeadsRoute,
   AuthenticatedAdminMessagesRoute: AuthenticatedAdminMessagesRoute,
+  AuthenticatedAdminSubscriptionsRoute: AuthenticatedAdminSubscriptionsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminBusinessesIdRoute: AuthenticatedAdminBusinessesIdRoute,
   AuthenticatedAdminBusinessesIndexRoute:

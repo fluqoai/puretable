@@ -1,146 +1,225 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Store, LogOut, UploadCloud, Palette, Inbox, Moon, Sun, ScrollText, Handshake } from "lucide-react";
+import {
+  LayoutDashboard,
+  Store,
+  LogOut,
+  UploadCloud,
+  Palette,
+  Inbox,
+  Moon,
+  Sun,
+  ScrollText,
+  Handshake,
+  Layers,
+  ExternalLink,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { isAdmin, claimFirstAdmin } from "@/lib/admin.functions";
+import { isAdmin } from "@/lib/admin.functions";
 import { LogoMark } from "@/components/site/Logo";
 import { ADMIN_KEY } from "@/lib/track";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — Pure Table" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "الإدارة — Pure Table" }, { name: "robots", content: "noindex" }],
+  }),
   component: AdminLayout,
 });
+const groups = [
+  {
+    title: "إدارة المنصة",
+    links: [
+      { to: "/admin", label: "نظرة عامة وتحليلات", icon: LayoutDashboard, exact: true },
+      { to: "/admin/businesses", label: "الأعمال والفروع", icon: Store, exact: false },
+      { to: "/admin/subscriptions", label: "الاشتراكات والباقات", icon: Layers, exact: false },
+    ],
+  },
+  {
+    title: "التواصل",
+    links: [
+      { to: "/admin/messages", label: "الرسائل", icon: Inbox, exact: false },
+      { to: "/admin/leads", label: "طلبات الشراكة", icon: Handshake, exact: false },
+    ],
+  },
+  {
+    title: "الإعدادات والأدوات",
+    links: [
+      { to: "/admin/appearance", label: "مظهر الموقع", icon: Palette, exact: false },
+      { to: "/admin/import", label: "استيراد البيانات", icon: UploadCloud, exact: false },
+      { to: "/admin/audit", label: "سجل التغييرات", icon: ScrollText, exact: false },
+    ],
+  },
+] as const;
 
 function AdminLayout() {
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const checkAdmin = useServerFn(isAdmin);
-  const claim = useServerFn(claimFirstAdmin);
-  const [status, setStatus] = useState<"loading" | "admin" | "not_admin">("loading");
+  const [status, setStatus] = useState<"loading" | "admin" | "not_admin" | "error">("loading");
   const [email, setEmail] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState(false);
-  // Dark mode is a dashboard-only preference; the public site stays light.
   const [dark, setDark] = useState(false);
-
+  const [attempt, setAttempt] = useState(0);
+  const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
     setDark(localStorage.getItem("pt-admin-theme") === "dark");
   }, []);
-
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
-
-  function toggleTheme() {
-    setDark((d) => {
-      localStorage.setItem("pt-admin-theme", d ? "light" : "dark");
-      return !d;
-    });
-  }
-
-  async function refresh() {
-    const { data: u } = await supabase.auth.getUser();
-    setEmail(u.user?.email ?? null);
-    // Allowlisted owner/editor emails get the admin role automatically on first visit.
-    try { await supabase.rpc("claim_admin_role"); } catch { /* already an admin or not allowlisted */ }
-    try {
-      const r = await checkAdmin();
-      setStatus(r.isAdmin ? "admin" : "not_admin");
-      // Flag this browser so admin traffic is excluded from customer analytics.
-      if (r.isAdmin) localStorage.setItem(ADMIN_KEY, "1");
-    } catch {
-      setStatus("not_admin");
-    }
-  }
-
-
-  useEffect(() => { refresh(); }, []);
-
-  async function tryClaim() {
-    setClaiming(true);
-    try {
-      const r = await claim();
-      if (r.granted) await refresh();
-      else alert("An admin already exists. Ask them to grant you access.");
-    } finally {
-      setClaiming(false);
-    }
-  }
-
+  useEffect(() => {
+    let cancelled = false;
+    setStatus("loading");
+    void (async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        await supabase.rpc("claim_admin_role");
+        const result = await checkAdmin();
+        if (cancelled) return;
+        setEmail(data.user?.email ?? null);
+        setStatus(result.isAdmin ? "admin" : "not_admin");
+        if (result.isAdmin) localStorage.setItem(ADMIN_KEY, "1");
+      } catch {
+        if (!cancelled) setStatus("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [checkAdmin, attempt]);
   async function signOut() {
     await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+    localStorage.removeItem(ADMIN_KEY);
+    void navigate({ to: "/auth" });
   }
-
-  if (status === "loading") {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading…</div>;
-  }
-
-  if (status === "not_admin") {
+  if (status === "loading")
     return (
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-          <h1 className="font-display text-2xl font-semibold">Admin access required</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Signed in as <b>{email}</b>. If you're the first admin, claim access now.
-          </p>
-          <button onClick={tryClaim} disabled={claiming}
-            className="mt-4 w-full rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-70">
-            {claiming ? "Claiming…" : "Claim first-admin access"}
-          </button>
-          <button onClick={signOut} className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground">Sign out</button>
-        </div>
+      <div role="status" className="grid min-h-screen place-items-center text-sm">
+        جارٍ التحقق من صلاحيات الإدارة…
       </div>
     );
-  }
-
-  const links = [
-    { to: "/admin", label: "Analytics", icon: LayoutDashboard, exact: true },
-    { to: "/admin/businesses", label: "Businesses", icon: Store, exact: false },
-    { to: "/admin/messages", label: "Messages", icon: Inbox, exact: false },
-    { to: "/admin/leads", label: "Partner leads", icon: Handshake, exact: false },
-    { to: "/admin/import", label: "Bulk import", icon: UploadCloud, exact: false },
-    { to: "/admin/appearance", label: "Appearance", icon: Palette, exact: false },
-    { to: "/admin/audit", label: "Audit log", icon: ScrollText, exact: false },
-  ] as const;
-
-
+  if (status !== "admin")
+    return (
+      <div dir="rtl" className="mx-auto grid min-h-screen max-w-md content-center gap-4 p-6">
+        <h1 className="text-2xl font-semibold">
+          {status === "error" ? "تعذر التحقق من الصلاحيات" : "هذا الحساب لا يملك صلاحية الإدارة"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {email} — استخدم البريد المضاف كأدمن، وأكمل تفعيله من رسالة الدعوة.
+        </p>
+        {status === "error" && (
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="rounded-lg border p-3"
+          >
+            إعادة المحاولة
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="rounded-lg bg-primary p-3 text-primary-foreground"
+        >
+          تسجيل الخروج
+        </button>
+      </div>
+    );
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-2">
-            <LogoMark className="h-8 w-8" />
-            <span className="font-display font-semibold">Pure Table</span>
-            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">Admin</span>
+    <div dir="rtl" className="min-h-screen bg-background">
+      <a href="#admin-content" className="sr-only focus:not-sr-only focus:block focus:p-3">
+        الانتقال إلى المحتوى
+      </a>
+      <header className="border-b bg-card">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 p-4">
+          <Link to="/admin" className="flex items-center gap-2">
+            <LogoMark className="h-9 w-9" />
+            <span className="font-semibold">
+              Pure Table{" "}
+              <span className="block text-xs font-normal text-muted-foreground">لوحة الإدارة</span>
+            </span>
           </Link>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:inline">{email}</span>
-            <button onClick={toggleTheme} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-              {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-              {dark ? "Light" : "Dark"}
+          <div className="flex flex-wrap items-center gap-2">
+            <span dir="ltr" className="hidden text-xs text-muted-foreground md:block">
+              {email}
+            </span>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              عرض الموقع
+            </Link>
+            <button
+              type="button"
+              aria-label={dark ? "الوضع الفاتح" : "الوضع الداكن"}
+              onClick={() =>
+                setDark((value) => {
+                  localStorage.setItem("pt-admin-theme", !value ? "dark" : "light");
+                  return !value;
+                })
+              }
+              className="rounded-lg border p-2"
+            >
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <button onClick={signOut} className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-              <LogOut className="h-3.5 w-3.5" /> Sign out
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              خروج
             </button>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 sm:px-6 lg:px-8">
-          {links.map((l) => {
-            const active = l.exact ? pathname === l.to : pathname.startsWith(l.to);
-            return (
-              <Link key={l.to} to={l.to} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                <l.icon className="h-3.5 w-3.5" /> {l.label}
-              </Link>
-            );
-          })}
-        </nav>
       </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <Outlet />
-      </main>
+      <div className="mx-auto max-w-7xl lg:grid lg:grid-cols-[210px_minmax(0,1fr)]">
+        <button
+          type="button"
+          aria-expanded={navOpen}
+          aria-controls="admin-navigation"
+          onClick={() => setNavOpen(!navOpen)}
+          className="m-4 mb-0 rounded-lg border px-4 py-3 text-sm lg:hidden"
+        >
+          {navOpen ? "إغلاق قائمة الأقسام" : "أقسام لوحة الإدارة"}
+        </button>
+        <nav
+          id="admin-navigation"
+          aria-label="أقسام لوحة الإدارة"
+          className={`${navOpen ? "grid" : "hidden"} gap-3 border-b p-4 sm:grid-cols-3 lg:sticky lg:top-0 lg:block lg:h-fit lg:space-y-6 lg:border-b-0 lg:border-e`}
+        >
+          {groups.map((group) => (
+            <section key={group.title}>
+              <h2 className="mb-2 text-xs font-semibold text-muted-foreground">{group.title}</h2>
+              <div className="space-y-1">
+                {group.links.map((link) => {
+                  const active = link.exact
+                    ? pathname === link.to || pathname === link.to + "/"
+                    : pathname.startsWith(link.to);
+                  return (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      onClick={() => setNavOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm ${active ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+                    >
+                      <link.icon className="h-4 w-4 shrink-0" />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </nav>
+        <main id="admin-content" className="min-w-0 p-4 sm:p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

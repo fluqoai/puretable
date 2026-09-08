@@ -1,9 +1,11 @@
+import { readPlanCatalog } from "./subscriptions.server";
+import { toFeatures } from "./subscriptions";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { RANGES, sinceFor, type RangeKey } from "@/lib/analytics.ranges";
 import type { DashboardData } from "@/lib/analytics.dashboard.types";
-import { featuresOf, planOf } from "@/lib/plans";
+import { planOf } from "@/lib/plans";
 
 /**
  * All numbers are aggregated inside Postgres (`public.admin_dashboard`) so the
@@ -84,7 +86,8 @@ export const getBusinessReport = createServerFn({ method: "GET" })
       .eq("id", data.businessId)
       .maybeSingle();
     if (planError) throw new Error(planError.message);
-    const level = featuresOf(row as { plan?: string | null } | null).analytics;
+    const catalog = await readPlanCatalog(context.supabase);
+    const level = toFeatures(catalog[planOf(row)]).analytics;
     if (level === "none") {
       return {
         level,

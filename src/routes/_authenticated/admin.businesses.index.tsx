@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { adminListBusinesses, deleteBusiness, upsertBusiness, dedupeBusinesses, setBusinessPlan } from "@/lib/businesses.functions";
 import { signCoverUploadUrl } from "@/lib/admin.functions";
 import { useFilters } from "@/lib/filters";
@@ -59,7 +59,6 @@ function BusinessesList() {
   const [dedupeBusy, setDedupeBusy] = useState(false);
   const [planBusyId, setPlanBusyId] = useState<string | null>(null);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
-  const autoRan = useRef(false);
   // Built-in filters + any filter created from Appearance.
   const { all: allFilters } = useFilters();
   const filterOptions: [string, string][] = allFilters.map((f) => [
@@ -128,6 +127,7 @@ function BusinessesList() {
   }
 
   async function runDedupe(silent = false) {
+    if (!window.confirm("سيتم حذف السجلات التي يعتبرها النظام مكررة. يفضل مراجعة البيانات ونسخها احتياطياً أولاً. هل تريد المتابعة؟")) return;
     setDedupeBusy(true);
     try {
       const r: any = await dedupe();
@@ -143,15 +143,6 @@ function BusinessesList() {
       setDedupeBusy(false);
     }
   }
-
-  // Duplicates are cleaned up automatically the first time the list opens.
-  useEffect(() => {
-    if (autoRan.current || isLoading || all.length === 0) return;
-    autoRan.current = true;
-    void runDedupe(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, all.length]);
-
 
   async function patch(b: any, changes: Record<string, unknown>) {
     const { business_links, business_branches, created_at, updated_at, ...rest } = b;
@@ -198,8 +189,8 @@ function BusinessesList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Businesses</h1>
-          <p className="text-sm text-muted-foreground">Manage everything shown on the public site.</p>
+          <h1 className="font-display text-2xl font-semibold">الأعمال والفروع</h1>
+          <p className="text-sm text-muted-foreground">ابحث عن العمل لتعديل بياناته أو باقته، وأضف أعمالاً جديدة من الزر المقابل.</p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/admin/businesses/$id" params={{ id: "new" }}
@@ -208,7 +199,7 @@ function BusinessesList() {
               void navigate({ to: "/admin/businesses/$id", params: { id: "new" } });
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-            <Plus className="h-4 w-4" /> New business
+            <Plus className="h-4 w-4" /> إضافة عمل
           </Link>
         </div>
       </div>
@@ -271,7 +262,7 @@ function BusinessesList() {
         <div className="relative flex-1 min-w-[14rem]">
           <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, city or category…"
+            placeholder="ابحث بالاسم أو المدينة أو التصنيف…"
             className="w-full rounded-full border border-border bg-background ps-9 pe-3 py-2 text-sm outline-none focus:border-primary" />
         </div>
         <button type="button" onClick={() => setOnlyReview((v) => !v)}
@@ -282,7 +273,7 @@ function BusinessesList() {
         </button>
         <button type="button" onClick={() => runDedupe(false)} disabled={dedupeBusy}
           className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs hover:border-primary/40 disabled:opacity-60">
-          {dedupeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />} Remove duplicates
+          {dedupeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />} حذف المكررات
         </button>
         {categoryFilter && (
           <button type="button" onClick={() => setCategoryFilter(null)}
@@ -295,7 +286,7 @@ function BusinessesList() {
 
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)]">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)]">
         {isLoading ? (
           <p className="p-6 text-sm text-muted-foreground">Loading…</p>
         ) : rows.length === 0 ? (

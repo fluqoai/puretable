@@ -1,3 +1,5 @@
+import { usePlanDefinitions } from "@/hooks/use-plan-definitions";
+import { toFeatures } from "@/lib/subscriptions";
 import { useState } from "react";
 import type { z } from "zod";
 import { BranchInput } from "@/lib/businesses.schemas";
@@ -43,6 +45,8 @@ export function BranchEditor({
   onSave: (branch: Branch) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
+  const { data: catalog } = usePlanDefinitions();
+  const features = catalog ? toFeatures(catalog[plan]) : undefined;
   const [draft, setDraft] = useState<Branch | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +54,7 @@ export function BranchEditor({
   const slots = remainingBranchSlots(
     plan,
     existing.filter((b) => b.published && !b.permanently_closed).length,
+    features,
   );
   async function save() {
     if (!draft) return;
@@ -98,7 +103,7 @@ export function BranchEditor({
     <div className="space-y-4" dir="rtl">
       <p className="text-sm text-muted-foreground">
         أضف الفروع يدوياً وحدد موقع كل فرع على الخريطة. الحد الأقصى للفروع المنشورة:{" "}
-        {branchLimitLabel(plan)}. لن تُكتب البيانات قبل الحفظ.
+        {branchLimitLabel(plan, features)}. لن تُكتب البيانات قبل الحفظ.
       </p>
       {message && (
         <p role="status" className="text-sm text-primary">
