@@ -1,12 +1,12 @@
 import { Sparkles } from "lucide-react";
 import { useSiteText } from "@/hooks/use-site-settings";
+import { track } from "@/lib/track";
 import { LogoMark } from "./Logo";
 import { DeveloperCredit } from "./DeveloperCredit";
-import { WaitlistForm } from "./WaitlistForm";
 
 /** Shown to visitors while the site is in pre-launch mode. */
 export function ComingSoon() {
-  const { text, lang } = useSiteText();
+  const { text } = useSiteText();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center text-foreground">
       <LogoMark className="h-16" />
@@ -19,9 +19,15 @@ export function ComingSoon() {
       <p className="mt-4 max-w-xl text-sm text-muted-foreground sm:text-base">
         {text("coming_soon.body")}
       </p>
-      <div className="mt-8 flex w-full justify-center">
-        <WaitlistForm source="coming-soon" language={lang === "ar" ? "ar" : "en"} compact />
-      </div>
+      <a
+        href="https://tally.so/r/5B7j8E"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => track({ event_type: "click_link", platform: "tally", label: "coming-soon" })}
+        className="mt-8 inline-flex rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-soft)] transition hover:opacity-90"
+      >
+        {text("coming_soon.cta")}
+      </a>
       <div className="mt-10">
         <DeveloperCredit />
       </div>

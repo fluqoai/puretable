@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ExternalLink } from "lucide-react";
 import { ogImageMeta } from "@/lib/seo";
 import { Page } from "@/components/site/Layout";
 import { usePageView } from "@/hooks/use-page-view";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { WaitlistForm } from "@/components/site/WaitlistForm";
+import { track } from "@/lib/track";
 
 export const Route = createFileRoute("/waitlist")({
   // `?src=` lets a pre-launch campaign tag where each sign-up came from.
@@ -32,6 +33,7 @@ function WaitlistPage() {
   const ar = lang === "ar";
   const { src } = Route.useSearch();
   usePageView();
+  const tallyUrl = "https://tally.so/r/5B7j8E";
 
   return (
     <Page>
@@ -46,7 +48,22 @@ function WaitlistPage() {
             : "Leave your email and we will tell you the moment Pure Table launches in your city."}
         </p>
 
-        <WaitlistForm source={src || "waitlist"} language={ar ? "ar" : "en"} />
+        <a
+          href={tallyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() =>
+            track({
+              event_type: "click_link",
+              platform: "tally",
+              label: src || "waitlist",
+            })
+          }
+          className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+        >
+          <ExternalLink className="h-4 w-4" />
+          {ar ? "سجّلني" : "Join the waitlist"}
+        </a>
       </section>
     </Page>
   );
