@@ -1,7 +1,7 @@
-
 import { Sparkles } from "lucide-react";
 import { useSiteText } from "@/hooks/use-site-settings";
 import { LogoMark } from "./Logo";
+import { DeveloperCredit } from "./DeveloperCredit";
 
 /** Shown to visitors while the site is in pre-launch mode. */
 export function ComingSoon() {
@@ -15,7 +15,9 @@ export function ComingSoon() {
       <h1 className="mt-5 max-w-2xl font-display text-3xl font-semibold leading-tight sm:text-4xl">
         {text("coming_soon.title")}
       </h1>
-      <p className="mt-4 max-w-xl text-sm text-muted-foreground sm:text-base">{text("coming_soon.body")}</p>
+      <p className="mt-4 max-w-xl text-sm text-muted-foreground sm:text-base">
+        {text("coming_soon.body")}
+      </p>
       <a
         href="https://tally.so/r/5B7j8E"
         target="_blank"
@@ -24,6 +26,9 @@ export function ComingSoon() {
       >
         {text("coming_soon.cta")}
       </a>
+      <div className="mt-10">
+        <DeveloperCredit />
+      </div>
     </div>
   );
 }

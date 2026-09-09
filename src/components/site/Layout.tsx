@@ -10,7 +10,7 @@ import { useSiteText } from "@/hooks/use-site-settings";
 import { useFilters } from "@/lib/filters";
 import { track } from "@/lib/track";
 import { ComingSoon } from "./ComingSoon";
-
+import { DeveloperCredit } from "./DeveloperCredit";
 
 function useSession() {
   const [signedIn, setSignedIn] = useState(false);
@@ -19,7 +19,9 @@ function useSession() {
     const { data: sub } = supabase.auth.onAuthStateChange((e) => {
       if (e === "SIGNED_IN" || e === "SIGNED_OUT") setSignedIn(e === "SIGNED_IN");
     });
-    return () => { sub.subscription.unsubscribe(); };
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
   return signedIn;
 }
@@ -34,7 +36,9 @@ export function SiteHeader() {
         <Link to="/" className="flex min-w-0 items-center gap-1">
           <LogoMark className="h-11 shrink-0 sm:h-12" />
           <span className="flex min-w-0 flex-col leading-tight">
-            <span className="font-display text-lg font-semibold tracking-tight sm:text-xl">{t("brand.name")}</span>
+            <span className="font-display text-lg font-semibold tracking-tight sm:text-xl">
+              {t("brand.name")}
+            </span>
             <span className="hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:block">
               {text("brand.tagline")}
             </span>
@@ -53,12 +57,18 @@ export function SiteHeader() {
             <Heart className="h-4 w-4" />
           </Link>
           {signedIn ? (
-            <Link to="/admin" className="hidden items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground lg:inline-flex">
+            <Link
+              to="/admin"
+              className="hidden items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground lg:inline-flex"
+            >
               <ShieldCheck className="h-3.5 w-3.5" /> {t("nav.admin")}
             </Link>
           ) : (
             shows("header_sign_in") && (
-              <Link to="/auth" className="hidden rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground lg:inline-flex">
+              <Link
+                to="/auth"
+                className="hidden rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground lg:inline-flex"
+              >
                 {t("nav.sign_in")}
               </Link>
             )
@@ -72,12 +82,10 @@ export function SiteHeader() {
             </Link>
           )}
         </div>
-
       </div>
     </header>
   );
 }
-
 
 export function SiteFooter() {
   const { t } = useTranslation();
@@ -91,9 +99,19 @@ export function SiteFooter() {
     return v && v !== key ? v : "";
   };
   const socials = [
-    { key: "instagram", label: "Instagram", icon: Instagram, href: instagramHref(val("contact_info.instagram")) },
+    {
+      key: "instagram",
+      label: "Instagram",
+      icon: Instagram,
+      href: instagramHref(val("contact_info.instagram")),
+    },
     { key: "tiktok", label: "TikTok", icon: Music2, href: tiktokHref(val("contact_info.tiktok")) },
-    { key: "whatsapp", label: "WhatsApp", icon: MessageCircle, href: whatsappHref(val("contact_info.whatsapp")) },
+    {
+      key: "whatsapp",
+      label: "WhatsApp",
+      icon: MessageCircle,
+      href: whatsappHref(val("contact_info.whatsapp")),
+    },
     { key: "email", label: "Email", icon: Mail, href: emailHref(val("contact_info.email")) },
   ].filter((s): s is typeof s & { href: string } => !!s.href);
   return (
@@ -113,14 +131,19 @@ export function SiteFooter() {
               <li key={c.path}>
                 <Link
                   to={c.path}
-                  onClick={() => track({ event_type: "filter_click", platform: c.primary ? "main" : "secondary", label: c.value })}
+                  onClick={() =>
+                    track({
+                      event_type: "filter_click",
+                      platform: c.primary ? "main" : "secondary",
+                      label: c.value,
+                    })
+                  }
                   className="hover:text-foreground"
                 >
                   {c.label}
                 </Link>
               </li>
             ))}
-
           </ul>
         </div>
         <div>
@@ -128,12 +151,18 @@ export function SiteFooter() {
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             {email && email !== "contact_info.email" && (
               <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4" /> <a href={`mailto:${email}`} className="hover:text-foreground">{email}</a>
+                <Mail className="h-4 w-4" />{" "}
+                <a href={`mailto:${email}`} className="hover:text-foreground">
+                  {email}
+                </a>
               </li>
             )}
             {phone && phone !== "contact_info.phone" && (
               <li className="flex items-center gap-2">
-                <Phone className="h-4 w-4" /> <a href={`tel:${phone}`} dir="ltr" className="hover:text-foreground">{phone}</a>
+                <Phone className="h-4 w-4" />{" "}
+                <a href={`tel:${phone}`} dir="ltr" className="hover:text-foreground">
+                  {phone}
+                </a>
               </li>
             )}
           </ul>
@@ -157,15 +186,26 @@ export function SiteFooter() {
           )}
           <h4 className="mt-6 font-display text-sm font-semibold">{t("footer.legal")}</h4>
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-            <li><Link to="/privacy" className="hover:text-foreground">{t("footer.privacy")}</Link></li>
-            <li><Link to="/terms" className="hover:text-foreground">{t("footer.terms")}</Link></li>
+            <li>
+              <Link to="/privacy" className="hover:text-foreground">
+                {t("footer.privacy")}
+              </Link>
+            </li>
+            <li>
+              <Link to="/terms" className="hover:text-foreground">
+                {t("footer.terms")}
+              </Link>
+            </li>
           </ul>
         </div>
       </div>
 
       <div className="border-t border-border/60">
-        <div className="mx-auto max-w-7xl px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-8">
-          © {new Date().getFullYear()} {t("brand.name")}. {t("footer.copyright")}
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-4 text-center text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
+          <span>
+            © {new Date().getFullYear()} {t("brand.name")}. {t("footer.copyright")}
+          </span>
+          <DeveloperCredit />
         </div>
       </div>
     </footer>
@@ -189,4 +229,3 @@ export function Page({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
