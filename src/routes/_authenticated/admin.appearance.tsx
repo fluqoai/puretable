@@ -37,12 +37,16 @@ function AppearancePage() {
   const signUpload = useServerFn(signCoverUploadUrl);
   const [draft, setDraft] = useState<SiteSettings>(saved);
   const [busy, setBusy] = useState(false);
+  const [launchReady, setLaunchReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSiteSettings(false)
-      .then(setDraft)
+      .then((settings) => {
+        setDraft(settings);
+        setLaunchReady(true);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -113,7 +117,6 @@ function AppearancePage() {
       id: "default",
       theme: next.theme,
       content: next.content,
-      sections: next.sections,
       layout: next.layout,
       draft: null,
     } as never);
@@ -151,13 +154,54 @@ function AppearancePage() {
     setError(null);
   }
 
+  async function toggleLaunch() {
+    const live = saved.sections.site_live === false;
+    if (
+      !window.confirm(
+        live
+          ? "إطلاق الموقع وإخفاء صفحة قريباً؟ ستظهر فقط المحلات التي وافقت على نشرها."
+          : "تفعيل صفحة قريباً للزوار؟ سيبقى دخول الأدمن متاحاً.",
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { data: current, error: readError } = await supabase
+        .from("site_settings")
+        .select("sections")
+        .eq("id", "default")
+        .single();
+      if (readError) throw readError;
+      const sections = { ...(current.sections as Record<string, boolean>), site_live: live };
+      const { data: changed, error: updateError } = await supabase
+        .from("site_settings")
+        .update({ sections })
+        .eq("id", "default")
+        .eq("sections", JSON.stringify(current.sections))
+        .select("id")
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!changed) throw new Error("تغيرت الإعدادات أثناء الحفظ. أعد المحاولة.");
+      setDraft((previous) => ({ ...previous, sections }));
+      await queryClient.invalidateQueries({ queryKey: SITE_SETTINGS_KEY });
+      logAudit(live ? "launch_site" : "enable_coming_soon", "site_settings", "default");
+      setMessage(live ? "تم إطلاق الموقع وإخفاء صفحة قريباً." : "تم تفعيل صفحة قريباً للزوار.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر تغيير حالة الموقع.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold">المظهر والهوية</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            إعدادات مباشرة للشعار، الألوان، صورة الواجهة والنصوص الترحيبية فقط.
+            التحكم بإطلاق الموقع والشعار والألوان وصورة الواجهة والنصوص الترحيبية.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -190,6 +234,32 @@ function AppearancePage() {
           {error}
         </div>
       )}
+
+      <Panel title="إطلاق الموقع / صفحة قريباً" icon={Monitor}>
+        <p className="text-sm font-medium">
+          {!launchReady
+            ? "جارٍ تحميل حالة الموقع…"
+            : saved.sections.site_live === false
+              ? "صفحة قريباً مفعّلة للزوار"
+              : "الموقع مفتوح للزوار"}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          يمكن للزوار تسجيل اهتمامهم أثناء التجهيز. عند الإطلاق، أخفِ الصفحة من الزر أدناه. هذا لا
+          ينشر أي محل مخفي، ولا يغيّر إعدادات المظهر.
+        </p>
+        <button
+          type="button"
+          disabled={busy || !launchReady}
+          onClick={() => void toggleLaunch()}
+          className="mt-4 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {busy
+            ? "جارٍ الحفظ…"
+            : saved.sections.site_live === false
+              ? "إطلاق الموقع وإخفاء صفحة قريباً"
+              : "إعادة تفعيل صفحة قريباً"}
+        </button>
+      </Panel>
 
       <Panel title="الشعار الموحّد" icon={ImageIcon}>
         <p className="text-sm text-muted-foreground">
