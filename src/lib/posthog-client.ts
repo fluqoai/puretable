@@ -3,7 +3,11 @@ let pending: Promise<typeof import("posthog-js").default> | undefined;
 export function capturePosthog(event: string, properties: Record<string, unknown> = {}) {
   if (typeof window === "undefined" || !import.meta.env.VITE_POSTHOG_KEY) return;
   // Never collect admin/auth screens, raw searches, phone numbers, or redirect URLs.
-  if (/^\/(admin|auth|login|signup|reset-password|forgot-password)(\/|$)/.test(location.pathname))
+  if (
+    /^\/(admin|admin-login|profile|auth|login|signup|reset-password|forgot-password)(\/|$)/.test(
+      location.pathname,
+    )
+  )
     return;
   pending ??= import("posthog-js")
     .then(({ default: posthog }) => {

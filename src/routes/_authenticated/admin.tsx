@@ -77,7 +77,6 @@ function AdminLayout() {
       try {
         const { data, error } = await supabase.auth.getUser();
         if (error) throw error;
-        await supabase.rpc("claim_admin_role");
         const result = await checkAdmin();
         if (cancelled) return;
         setEmail(data.user?.email ?? null);
@@ -94,7 +93,7 @@ function AdminLayout() {
   async function signOut() {
     await supabase.auth.signOut();
     localStorage.removeItem(ADMIN_KEY);
-    void navigate({ to: "/auth" });
+    void navigate({ to: "/admin-login" });
   }
   if (status === "loading")
     return (

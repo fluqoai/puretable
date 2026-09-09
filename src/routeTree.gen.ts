@@ -16,6 +16,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as RestaurantsRouteImport } from './routes/restaurants'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PartnersRouteImport } from './routes/partners'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -28,6 +29,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CafesRouteImport } from './routes/cafes'
 import { Route as BakeriesRouteImport } from './routes/bakeries'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -83,6 +85,11 @@ const RestaurantsRoute = RestaurantsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -143,6 +150,11 @@ const BakeriesRoute = BakeriesRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin-login',
+  path: '/admin-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -260,6 +272,7 @@ const AuthenticatedAdminBusinessesIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/admin-login': typeof AdminLoginRoute
   '/auth': typeof AuthRoute
   '/bakeries': typeof BakeriesRoute
   '/cafes': typeof CafesRoute
@@ -272,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/partners': typeof PartnersRoute
   '/privacy': typeof PrivacyRoute
+  '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/restaurants': typeof RestaurantsRoute
   '/search': typeof SearchRoute
@@ -301,6 +315,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/admin-login': typeof AdminLoginRoute
   '/auth': typeof AuthRoute
   '/bakeries': typeof BakeriesRoute
   '/cafes': typeof CafesRoute
@@ -313,6 +328,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/partners': typeof PartnersRoute
   '/privacy': typeof PrivacyRoute
+  '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/restaurants': typeof RestaurantsRoute
   '/search': typeof SearchRoute
@@ -343,6 +359,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/admin-login': typeof AdminLoginRoute
   '/auth': typeof AuthRoute
   '/bakeries': typeof BakeriesRoute
   '/cafes': typeof CafesRoute
@@ -355,6 +372,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/partners': typeof PartnersRoute
   '/privacy': typeof PrivacyRoute
+  '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/restaurants': typeof RestaurantsRoute
   '/search': typeof SearchRoute
@@ -386,6 +404,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/admin-login'
     | '/auth'
     | '/bakeries'
     | '/cafes'
@@ -398,6 +417,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/partners'
     | '/privacy'
+    | '/profile'
     | '/reset-password'
     | '/restaurants'
     | '/search'
@@ -427,6 +447,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/admin-login'
     | '/auth'
     | '/bakeries'
     | '/cafes'
@@ -439,6 +460,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/partners'
     | '/privacy'
+    | '/profile'
     | '/reset-password'
     | '/restaurants'
     | '/search'
@@ -468,6 +490,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/about'
+    | '/admin-login'
     | '/auth'
     | '/bakeries'
     | '/cafes'
@@ -480,6 +503,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/partners'
     | '/privacy'
+    | '/profile'
     | '/reset-password'
     | '/restaurants'
     | '/search'
@@ -511,6 +535,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AdminLoginRoute: typeof AdminLoginRoute
   AuthRoute: typeof AuthRoute
   BakeriesRoute: typeof BakeriesRoute
   CafesRoute: typeof CafesRoute
@@ -523,6 +548,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   PartnersRoute: typeof PartnersRoute
   PrivacyRoute: typeof PrivacyRoute
+  ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RestaurantsRoute: typeof RestaurantsRoute
   SearchRoute: typeof SearchRoute
@@ -587,6 +613,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -671,6 +704,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-login': {
+      id: '/admin-login'
+      path: '/admin-login'
+      fullPath: '/admin-login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -880,6 +920,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
+  AdminLoginRoute: AdminLoginRoute,
   AuthRoute: AuthRoute,
   BakeriesRoute: BakeriesRoute,
   CafesRoute: CafesRoute,
@@ -892,6 +933,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   PartnersRoute: PartnersRoute,
   PrivacyRoute: PrivacyRoute,
+  ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RestaurantsRoute: RestaurantsRoute,
   SearchRoute: SearchRoute,

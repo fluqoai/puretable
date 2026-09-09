@@ -8,6 +8,24 @@ export type Database = {
   };
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          display_name: string;
+          city: string;
+          avatar_path: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          display_name?: string;
+          city?: string;
+          avatar_path?: string | null;
+          created_at?: string;
+        };
+        Update: { display_name?: string; city?: string; avatar_path?: string | null };
+        Relationships: [];
+      };
       admin_audit_log: {
         Row: {
           action: string;

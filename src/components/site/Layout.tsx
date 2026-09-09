@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { Instagram, Mail, Phone, ShieldCheck, Music2, MessageCircle, Heart } from "lucide-react";
+import { Instagram, Mail, Phone, UserRound, Music2, MessageCircle, Heart } from "lucide-react";
 import { emailHref, instagramHref, tiktokHref, whatsappHref } from "@/lib/contact";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -32,8 +32,8 @@ export function SiteHeader() {
   const signedIn = useSession();
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-1">
+      <div className="mx-auto flex min-h-20 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6 lg:px-8">
+        <Link to="/" className="flex shrink-0 items-center gap-1">
           <LogoMark className="h-11 shrink-0 sm:h-12" />
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="font-display text-lg font-semibold tracking-tight sm:text-xl">
@@ -58,20 +58,18 @@ export function SiteHeader() {
           </Link>
           {signedIn ? (
             <Link
-              to="/admin"
-              className="hidden items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground lg:inline-flex"
+              to="/profile"
+              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground lg:inline-flex"
             >
-              <ShieldCheck className="h-3.5 w-3.5" /> {t("nav.admin")}
+              <UserRound className="h-3.5 w-3.5" /> حسابي
             </Link>
           ) : (
-            shows("header_sign_in") && (
-              <Link
-                to="/auth"
-                className="hidden rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground lg:inline-flex"
-              >
-                {t("nav.sign_in")}
-              </Link>
-            )
+            <Link
+              to="/auth"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground lg:inline-flex"
+            >
+              {t("nav.sign_in")}
+            </Link>
           )}
           {shows("header_cta") && (
             <Link
@@ -213,7 +211,17 @@ export function SiteFooter() {
 }
 
 /** Pages that stay reachable while the site is in pre-launch mode. */
-const PRELAUNCH_OPEN = ["/waitlist", "/auth", "/reset-password", "/privacy", "/terms", "/admin"];
+const PRELAUNCH_OPEN = [
+  "/waitlist",
+  "/auth",
+  "/admin-login",
+  "/profile",
+  "/favorites",
+  "/reset-password",
+  "/privacy",
+  "/terms",
+  "/admin",
+];
 
 export function Page({ children }: { children: ReactNode }) {
   const { shows } = useSiteText();

@@ -10,8 +10,7 @@ export const Route = createFileRoute("/_authenticated")({
       // locally. Use a document redirect so React never tries to hydrate the
       // protected-route placeholder as the sign-in page.
       throw redirect({
-        to: "/auth",
-        search: { next: location.href },
+        to: "/admin-login",
         replace: true,
         reloadDocument: true,
       });

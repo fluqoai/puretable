@@ -36,17 +36,20 @@ export function useAuthUser() {
 
 /** Set of business uuids the current user saved. */
 export function useFavoriteIds() {
-  const { userId } = useAuthUser();
-  const { data } = useQuery({
+  const { userId, ready } = useAuthUser();
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: [...FAVORITES_KEY, userId ?? "anon"],
     enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("favorites").select("business_id");
+      const { data, error } = await supabase
+        .from("favorites")
+        .select("business_id")
+        .eq("user_id", userId!);
       if (error) throw new Error(error.message);
       return (data ?? []).map((r) => r.business_id as string);
     },
   });
-  return { userId, ids: new Set(data ?? []) };
+  return { userId, ready, isLoading, error, refetch, ids: new Set(data ?? []) };
 }
 
 export function useToggleFavorite(userId: string | null) {
@@ -59,7 +62,7 @@ export function useToggleFavorite(userId: string | null) {
           .from("favorites")
           .upsert(
             { user_id: userId, business_id: businessId },
-            { onConflict: "user_id,business_id" },
+            { onConflict: "user_id,business_id", ignoreDuplicates: true },
           );
         if (error) throw new Error(error.message);
       } else {
