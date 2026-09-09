@@ -597,6 +597,53 @@ export type Database = {
         };
         Relationships: [];
       };
+      success_partners: {
+        Row: {
+          active: boolean;
+          business_id: string | null;
+          created_at: string;
+          id: string;
+          kind: string;
+          link_url: string | null;
+          logo_url: string | null;
+          name: string;
+          name_ar: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          business_id?: string | null;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          link_url?: string | null;
+          logo_url?: string | null;
+          name: string;
+          name_ar?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          business_id?: string | null;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          link_url?: string | null;
+          logo_url?: string | null;
+          name?: string;
+          name_ar?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "success_partners_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_roles: {
         Row: {
           created_at: string;

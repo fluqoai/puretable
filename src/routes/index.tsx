@@ -12,6 +12,7 @@ import { listBusinesses } from "@/lib/businesses.public.functions";
 import { usePageView } from "@/hooks/use-page-view";
 import { useSiteText } from "@/hooks/use-site-settings";
 import { track } from "@/lib/track";
+import { SuccessPartners } from "@/components/site/SuccessPartners";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -382,6 +383,7 @@ function Home() {
           </section>
         );
       })}
+      <SuccessPartners />
     </Page>
   );
 }

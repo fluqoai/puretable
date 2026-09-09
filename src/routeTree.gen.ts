@@ -41,6 +41,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as ApiPublicSheetSyncRouteImport } from './routes/api/public/sheet-sync'
 import { Route as ApiPublicEventRouteImport } from './routes/api/public/event'
 import { Route as ApiPublicCoverRouteImport } from './routes/api/public/cover'
+import { Route as AuthenticatedAdminSuccessPartnersRouteImport } from './routes/_authenticated/admin.success-partners'
 import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_authenticated/admin.subscriptions'
 import { Route as AuthenticatedAdminMessagesRouteImport } from './routes/_authenticated/admin.messages'
 import { Route as AuthenticatedAdminLeadsRouteImport } from './routes/_authenticated/admin.leads'
@@ -211,6 +212,12 @@ const ApiPublicCoverRoute = ApiPublicCoverRouteImport.update({
   path: '/api/public/cover',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminSuccessPartnersRoute =
+  AuthenticatedAdminSuccessPartnersRouteImport.update({
+    id: '/success-partners',
+    path: '/success-partners',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminSubscriptionsRoute =
   AuthenticatedAdminSubscriptionsRouteImport.update({
     id: '/subscriptions',
@@ -304,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
+  '/admin/success-partners': typeof AuthenticatedAdminSuccessPartnersRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -346,6 +354,7 @@ export interface FileRoutesByTo {
   '/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
+  '/admin/success-partners': typeof AuthenticatedAdminSuccessPartnersRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -391,6 +400,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/_authenticated/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/_authenticated/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
+  '/_authenticated/admin/success-partners': typeof AuthenticatedAdminSuccessPartnersRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/admin/leads'
     | '/admin/messages'
     | '/admin/subscriptions'
+    | '/admin/success-partners'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -478,6 +489,7 @@ export interface FileRouteTypes {
     | '/admin/leads'
     | '/admin/messages'
     | '/admin/subscriptions'
+    | '/admin/success-partners'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -522,6 +534,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/leads'
     | '/_authenticated/admin/messages'
     | '/_authenticated/admin/subscriptions'
+    | '/_authenticated/admin/success-partners'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -790,6 +803,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCoverRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/success-partners': {
+      id: '/_authenticated/admin/success-partners'
+      path: '/success-partners'
+      fullPath: '/admin/success-partners'
+      preLoaderRoute: typeof AuthenticatedAdminSuccessPartnersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/subscriptions': {
       id: '/_authenticated/admin/subscriptions'
       path: '/subscriptions'
@@ -871,6 +891,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminLeadsRoute: typeof AuthenticatedAdminLeadsRoute
   AuthenticatedAdminMessagesRoute: typeof AuthenticatedAdminMessagesRoute
   AuthenticatedAdminSubscriptionsRoute: typeof AuthenticatedAdminSubscriptionsRoute
+  AuthenticatedAdminSuccessPartnersRoute: typeof AuthenticatedAdminSuccessPartnersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminBusinessesIdRoute: typeof AuthenticatedAdminBusinessesIdRoute
   AuthenticatedAdminBusinessesIndexRoute: typeof AuthenticatedAdminBusinessesIndexRoute
@@ -884,6 +905,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminLeadsRoute: AuthenticatedAdminLeadsRoute,
   AuthenticatedAdminMessagesRoute: AuthenticatedAdminMessagesRoute,
   AuthenticatedAdminSubscriptionsRoute: AuthenticatedAdminSubscriptionsRoute,
+  AuthenticatedAdminSuccessPartnersRoute:
+    AuthenticatedAdminSuccessPartnersRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminBusinessesIdRoute: AuthenticatedAdminBusinessesIdRoute,
   AuthenticatedAdminBusinessesIndexRoute:
