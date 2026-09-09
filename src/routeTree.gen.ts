@@ -41,6 +41,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as ApiPublicSheetSyncRouteImport } from './routes/api/public/sheet-sync'
 import { Route as ApiPublicEventRouteImport } from './routes/api/public/event'
 import { Route as ApiPublicCoverRouteImport } from './routes/api/public/cover'
+import { Route as ApiPublicBrandLogoRouteImport } from './routes/api/public/brand-logo'
 import { Route as AuthenticatedAdminSuccessPartnersRouteImport } from './routes/_authenticated/admin.success-partners'
 import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_authenticated/admin.subscriptions'
 import { Route as AuthenticatedAdminMessagesRouteImport } from './routes/_authenticated/admin.messages'
@@ -212,6 +213,11 @@ const ApiPublicCoverRoute = ApiPublicCoverRouteImport.update({
   path: '/api/public/cover',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBrandLogoRoute = ApiPublicBrandLogoRouteImport.update({
+  id: '/api/public/brand-logo',
+  path: '/api/public/brand-logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminSuccessPartnersRoute =
   AuthenticatedAdminSuccessPartnersRouteImport.update({
     id: '/success-partners',
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/success-partners': typeof AuthenticatedAdminSuccessPartnersRoute
+  '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -355,6 +362,7 @@ export interface FileRoutesByTo {
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/admin/success-partners': typeof AuthenticatedAdminSuccessPartnersRoute
+  '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -401,6 +409,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/messages': typeof AuthenticatedAdminMessagesRoute
   '/_authenticated/admin/subscriptions': typeof AuthenticatedAdminSubscriptionsRoute
   '/_authenticated/admin/success-partners': typeof AuthenticatedAdminSuccessPartnersRoute
+  '/api/public/brand-logo': typeof ApiPublicBrandLogoRoute
   '/api/public/cover': typeof ApiPublicCoverRouteWithChildren
   '/api/public/event': typeof ApiPublicEventRoute
   '/api/public/sheet-sync': typeof ApiPublicSheetSyncRoute
@@ -447,6 +456,7 @@ export interface FileRouteTypes {
     | '/admin/messages'
     | '/admin/subscriptions'
     | '/admin/success-partners'
+    | '/api/public/brand-logo'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -490,6 +500,7 @@ export interface FileRouteTypes {
     | '/admin/messages'
     | '/admin/subscriptions'
     | '/admin/success-partners'
+    | '/api/public/brand-logo'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -535,6 +546,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/messages'
     | '/_authenticated/admin/subscriptions'
     | '/_authenticated/admin/success-partners'
+    | '/api/public/brand-logo'
     | '/api/public/cover'
     | '/api/public/event'
     | '/api/public/sheet-sync'
@@ -572,6 +584,7 @@ export interface RootRouteChildren {
   BusinessIdRoute: typeof BusinessIdRoute
   CSlugRoute: typeof CSlugRoute
   SServiceRoute: typeof SServiceRoute
+  ApiPublicBrandLogoRoute: typeof ApiPublicBrandLogoRoute
   ApiPublicCoverRoute: typeof ApiPublicCoverRouteWithChildren
   ApiPublicEventRoute: typeof ApiPublicEventRoute
   ApiPublicSheetSyncRoute: typeof ApiPublicSheetSyncRoute
@@ -803,6 +816,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCoverRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/brand-logo': {
+      id: '/api/public/brand-logo'
+      path: '/api/public/brand-logo'
+      fullPath: '/api/public/brand-logo'
+      preLoaderRoute: typeof ApiPublicBrandLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/success-partners': {
       id: '/_authenticated/admin/success-partners'
       path: '/success-partners'
@@ -967,6 +987,7 @@ const rootRouteChildren: RootRouteChildren = {
   BusinessIdRoute: BusinessIdRoute,
   CSlugRoute: CSlugRoute,
   SServiceRoute: SServiceRoute,
+  ApiPublicBrandLogoRoute: ApiPublicBrandLogoRoute,
   ApiPublicCoverRoute: ApiPublicCoverRouteWithChildren,
   ApiPublicEventRoute: ApiPublicEventRoute,
   ApiPublicSheetSyncRoute: ApiPublicSheetSyncRoute,

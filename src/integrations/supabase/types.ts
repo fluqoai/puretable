@@ -487,6 +487,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_deliveries: {
+        Row: {
+          created_at: string;
+          error: string | null;
+          event_key: string;
+          id: string;
+          metadata: Json;
+          notification_type: string;
+          provider_id: string | null;
+          recipient: string;
+          sent_at: string | null;
+          status: string;
+          subject: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          error?: string | null;
+          event_key: string;
+          id?: string;
+          metadata?: Json;
+          notification_type: string;
+          provider_id?: string | null;
+          recipient: string;
+          sent_at?: string | null;
+          status?: string;
+          subject: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          error?: string | null;
+          event_key?: string;
+          id?: string;
+          metadata?: Json;
+          notification_type?: string;
+          provider_id?: string | null;
+          recipient?: string;
+          sent_at?: string | null;
+          status?: string;
+          subject?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       favorites: {
         Row: {
           business_id: string;

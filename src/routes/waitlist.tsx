@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ogImageMeta } from "@/lib/seo";
-import { ExternalLink } from "lucide-react";
 import { Page } from "@/components/site/Layout";
 import { usePageView } from "@/hooks/use-page-view";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { track } from "@/lib/track";
+import { WaitlistForm } from "@/components/site/WaitlistForm";
 
 export const Route = createFileRoute("/waitlist")({
   // `?src=` lets a pre-launch campaign tag where each sign-up came from.
-  validateSearch: (s: Record<string, unknown>) => ({ src: typeof s['src'] === "string" ? s['src'] : "" }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    src: typeof s["src"] === "string" ? s["src"] : "",
+  }),
   head: () => ({
     meta: [
       { title: "قائمة الانتظار — Pure Table Waitlist" },
@@ -31,7 +32,6 @@ function WaitlistPage() {
   const ar = lang === "ar";
   const { src } = Route.useSearch();
   usePageView();
-  const tallyUrl = "https://tally.so/r/5B7j8E";
 
   return (
     <Page>
@@ -46,16 +46,7 @@ function WaitlistPage() {
             : "Leave your email and we will tell you the moment Pure Table launches in your city."}
         </p>
 
-        <a
-          href={tallyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => track({ event_type: "waitlist_signup", platform: src || "site", label: null })}
-          className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-        >
-          <ExternalLink className="h-4 w-4" />
-          {ar ? "سجّلني" : "Join the waitlist"}
-        </a>
+        <WaitlistForm source={src || "waitlist"} language={ar ? "ar" : "en"} />
       </section>
     </Page>
   );

@@ -1,0 +1,219 @@
+import { Resend } from "resend";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  renderPureTableEmail,
+  renderPureTableText,
+  type PureTableEmailContent,
+} from "@/lib/email-template";
+
+export type NotificationType =
+  | "contact_admin"
+  | "contact_receipt"
+  | "partner_admin"
+  | "partner_receipt"
+  | "waitlist_admin"
+  | "waitlist_receipt";
+
+type SendNotificationInput = {
+  eventKey: string;
+  type: NotificationType;
+  to: string;
+  subject: string;
+  content: PureTableEmailContent;
+  metadata?: Record<string, string | null>;
+};
+
+const from = () => process.env["EMAIL_FROM"] || "PureTable <no-reply@puretable.co>";
+const adminRecipient = () => process.env["EMAIL_ADMIN_RECIPIENT"] || "info@puretable.co";
+const siteOrigin = () => (process.env["APP_URL"] || "https://puretable.co").replace(/\/$/, "");
+
+function errorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "Unknown email error");
+  return message.slice(0, 1000);
+}
+
+export async function sendNotification(input: SendNotificationInput) {
+  const { error: claimError } = await supabaseAdmin.from("email_deliveries").insert({
+    event_key: input.eventKey,
+    notification_type: input.type,
+    recipient: input.to,
+    subject: input.subject,
+    metadata: input.metadata ?? {},
+  });
+  if (claimError?.code === "23505") return { skipped: true as const };
+  if (claimError) throw new Error(`Could not record email delivery: ${claimError.message}`);
+
+  try {
+    const apiKey = process.env["RESEND_API_KEY"];
+    if (!apiKey) throw new Error("RESEND_API_KEY is not configured");
+    const resend = new Resend(apiKey);
+    const { data, error } = await resend.emails.send(
+      {
+        from: from(),
+        to: input.to,
+        subject: input.subject,
+        html: renderPureTableEmail(input.content, siteOrigin()),
+        text: renderPureTableText(input.content),
+      },
+      { idempotencyKey: input.eventKey },
+    );
+    if (error) throw new Error(error.message);
+    await supabaseAdmin
+      .from("email_deliveries")
+      .update({ status: "sent", provider_id: data?.id ?? null, sent_at: new Date().toISOString() })
+      .eq("event_key", input.eventKey);
+    return { skipped: false as const, id: data?.id ?? null };
+  } catch (error) {
+    await supabaseAdmin
+      .from("email_deliveries")
+      .update({ status: "failed", error: errorMessage(error) })
+      .eq("event_key", input.eventKey);
+    throw error;
+  }
+}
+
+export async function notifyContactSubmission(input: {
+  id: string;
+  name: string;
+  email?: string | null;
+  subject?: string | null;
+  message: string;
+}) {
+  const jobs = [
+    sendNotification({
+      eventKey: `contact/${input.id}/admin`,
+      type: "contact_admin",
+      to: adminRecipient(),
+      subject: `رسالة جديدة من ${input.name}`,
+      content: {
+        preheader: "وصلت رسالة جديدة عبر صفحة التواصل في Pure Table.",
+        title: "رسالة تواصل جديدة",
+        intro: "وصلت رسالة جديدة عبر الموقع، ويمكنك مراجعتها والرد عليها من بيانات المرسل أدناه.",
+        details: [
+          { label: "الاسم", value: input.name },
+          { label: "البريد", value: input.email },
+          { label: "الموضوع", value: input.subject || "بدون عنوان" },
+          { label: "الرسالة", value: input.message },
+        ],
+        action: { label: "فتح لوحة الرسائل", url: `${siteOrigin()}/admin/messages` },
+      },
+      metadata: { submission_id: input.id },
+    }),
+  ];
+  if (input.email) {
+    jobs.push(
+      sendNotification({
+        eventKey: `contact/${input.id}/receipt`,
+        type: "contact_receipt",
+        to: input.email,
+        subject: "استلمنا رسالتك — Pure Table",
+        content: {
+          preheader: "تم استلام رسالتك بنجاح.",
+          title: `شكراً لك ${input.name}`,
+          intro: "استلمنا رسالتك بنجاح، وسيطّلع عليها فريق Pure Table ويتواصل معك عند الحاجة.",
+        },
+        metadata: { submission_id: input.id },
+      }),
+    );
+  }
+  await Promise.allSettled(jobs);
+}
+
+export async function notifyPartnerSubmission(input: {
+  id: string;
+  businessName: string;
+  businessType?: string | null;
+  city?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  notes?: string | null;
+}) {
+  const jobs = [
+    sendNotification({
+      eventKey: `partner/${input.id}/admin`,
+      type: "partner_admin",
+      to: adminRecipient(),
+      subject: `طلب انضمام جديد: ${input.businessName}`,
+      content: {
+        preheader: "وصل طلب انضمام منشأة جديد إلى Pure Table.",
+        title: "طلب انضمام منشأة جديد",
+        intro:
+          "سجّلت منشأة اهتمامها بالانضمام إلى الدليل. راجع البيانات وتابع الطلب من لوحة الإدارة.",
+        details: [
+          { label: "المنشأة", value: input.businessName },
+          { label: "النوع", value: input.businessType },
+          { label: "المدينة", value: input.city },
+          { label: "المسؤول", value: input.contactName },
+          { label: "الهاتف", value: input.phone },
+          { label: "البريد", value: input.email },
+          { label: "الموقع", value: input.website },
+          { label: "إنستغرام", value: input.instagram },
+          { label: "ملاحظات", value: input.notes },
+        ],
+        action: { label: "فتح طلبات المنشآت", url: `${siteOrigin()}/admin/leads` },
+      },
+      metadata: { submission_id: input.id },
+    }),
+  ];
+  if (input.email) {
+    jobs.push(
+      sendNotification({
+        eventKey: `partner/${input.id}/receipt`,
+        type: "partner_receipt",
+        to: input.email,
+        subject: "استلمنا طلب انضمام منشأتك — Pure Table",
+        content: {
+          preheader: "تم استلام طلب انضمام منشأتك.",
+          title: "شكراً لاهتمامك بالانضمام",
+          intro: `استلمنا طلب انضمام ${input.businessName} إلى Pure Table، وسيراجع فريقنا البيانات ويتواصل معك قريباً.`,
+        },
+        metadata: { submission_id: input.id },
+      }),
+    );
+  }
+  await Promise.allSettled(jobs);
+}
+
+export async function notifyWaitlistSignup(input: {
+  id: string;
+  email: string;
+  city?: string | null;
+  source?: string | null;
+}) {
+  await Promise.allSettled([
+    sendNotification({
+      eventKey: `waitlist/${input.id}/admin`,
+      type: "waitlist_admin",
+      to: adminRecipient(),
+      subject: "تسجيل جديد في قائمة انتظار Pure Table",
+      content: {
+        preheader: "انضم شخص جديد إلى قائمة الانتظار.",
+        title: "تسجيل جديد في قائمة الانتظار",
+        intro: "أُضيف بريد جديد إلى قائمة انتظار إطلاق Pure Table.",
+        details: [
+          { label: "البريد", value: input.email },
+          { label: "المدينة", value: input.city },
+          { label: "المصدر", value: input.source },
+        ],
+        action: { label: "فتح قائمة الانتظار", url: `${siteOrigin()}/admin/leads` },
+      },
+      metadata: { signup_id: input.id },
+    }),
+    sendNotification({
+      eventKey: `waitlist/${input.id}/receipt`,
+      type: "waitlist_receipt",
+      to: input.email,
+      subject: "أنت الآن ضمن قائمة انتظار Pure Table",
+      content: {
+        preheader: "تم تسجيلك في قائمة الانتظار.",
+        title: "أهلاً بك في Pure Table",
+        intro:
+          "تم تسجيل بريدك بنجاح. سنخبرك عند إطلاق المنصة وأهم التحديثات المتعلقة بتوفر الدليل.",
+      },
+      metadata: { signup_id: input.id },
+    }),
+  ]);
+}

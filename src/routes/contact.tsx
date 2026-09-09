@@ -3,17 +3,24 @@ import { ogImageMeta } from "@/lib/seo";
 import { Instagram, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { Page } from "@/components/site/Layout";
-import { supabase } from "@/integrations/supabase/client";
+import { submitContactMessage } from "@/lib/contact.functions";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
       { title: "Contact Pure Table — Get in Touch" },
-      { name: "description", content: "Reach out to Pure Table to list your gluten-free business or share a suggestion." },
+      {
+        name: "description",
+        content: "Reach out to Pure Table to list your gluten-free business or share a suggestion.",
+      },
       { property: "og:title", content: "Contact Pure Table" },
-      { property: "og:description", content: "Get in touch to list your gluten-free business in Saudi Arabia." },
+      {
+        property: "og:description",
+        content: "Get in touch to list your gluten-free business in Saudi Arabia.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       ...ogImageMeta(),
@@ -31,12 +38,14 @@ const MessageSchema = z.object({
 
 function Contact() {
   const { t } = useTranslation();
+  const submit = useServerFn(submitContactMessage);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget;
     setError(null);
     const fd = new FormData(e.currentTarget);
     const parsed = MessageSchema.safeParse({
@@ -50,28 +59,31 @@ function Contact() {
       return;
     }
     setBusy(true);
-    const { error: dbError } = await supabase.from("contact_messages").insert({
-      name: parsed.data.name,
-      email: parsed.data.email || null,
-      subject: parsed.data.subject || null,
-      message: parsed.data.message,
-    });
-    setBusy(false);
-    if (dbError) {
+    try {
+      await submit({ data: parsed.data });
+    } catch {
       setError(t("contact.error"));
+      setBusy(false);
       return;
     }
+    setBusy(false);
     setSent(true);
-    e.currentTarget.reset();
+    form.reset();
   }
 
   return (
     <Page>
       <section className="border-b border-border/60 bg-[var(--gradient-hero)]">
         <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">{t("contact.eyebrow")}</p>
-          <h1 className="mt-3 font-display text-4xl font-semibold leading-tight sm:text-5xl">{t("contact.title")}</h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">{t("contact.subtitle")}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            {t("contact.eyebrow")}
+          </p>
+          <h1 className="mt-3 font-display text-4xl font-semibold leading-tight sm:text-5xl">
+            {t("contact.title")}
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
+            {t("contact.subtitle")}
+          </p>
         </div>
       </section>
 
@@ -88,18 +100,40 @@ function Contact() {
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)] sm:p-8">
+        <form
+          onSubmit={onSubmit}
+          className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)] sm:p-8"
+        >
           <h2 className="font-display text-2xl font-semibold">{t("contact.form_title")}</h2>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Field label={t("contact.your_name")} name="name" placeholder={t("contact.name_ph")} required maxLength={120} />
-            <Field label={t("contact.email")} name="email" type="email" placeholder={t("contact.email_ph")} maxLength={255} />
+            <Field
+              label={t("contact.your_name")}
+              name="name"
+              placeholder={t("contact.name_ph")}
+              required
+              maxLength={120}
+            />
+            <Field
+              label={t("contact.email")}
+              name="email"
+              type="email"
+              placeholder={t("contact.email_ph")}
+              maxLength={255}
+            />
           </div>
           <div className="mt-4">
-            <Field label={t("contact.subject")} name="subject" placeholder={t("contact.subject_ph")} maxLength={200} />
+            <Field
+              label={t("contact.subject")}
+              name="subject"
+              placeholder={t("contact.subject_ph")}
+              maxLength={200}
+            />
           </div>
           <div className="mt-4">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("contact.message")}</label>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              {t("contact.message")}
+            </label>
             <textarea
               name="message"
               rows={5}
