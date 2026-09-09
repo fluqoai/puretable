@@ -13,6 +13,7 @@ import {
   Handshake,
   Layers,
   ExternalLink,
+  KeyRound,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -45,6 +46,7 @@ const groups = [
   {
     title: "الإعدادات والأدوات",
     links: [
+      { to: "/admin/account", label: "تغيير كلمة المرور", icon: KeyRound, exact: false },
       { to: "/admin/appearance", label: "مظهر الموقع", icon: Palette, exact: false },
       { to: "/admin/import", label: "استيراد البيانات", icon: UploadCloud, exact: false },
       { to: "/admin/audit", label: "سجل التغييرات", icon: ScrollText, exact: false },
