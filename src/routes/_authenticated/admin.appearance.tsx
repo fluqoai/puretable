@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AtSign,
   CheckCircle2,
   Image as ImageIcon,
   Loader2,
@@ -40,6 +41,49 @@ const WELCOME_FIELDS = [
 const LEGAL_FIELDS = [
   { key: "legal.privacy_body", label: "نص سياسة الخصوصية" },
   { key: "legal.terms_body", label: "نص الشروط والأحكام" },
+] as const;
+
+/**
+ * Pure Table's official contact handles — shown as footer icons (and the
+ * phone/email as text under "Get in touch"). Each field accepts either a
+ * full URL or a plain handle / number; `contact.ts` helpers normalise them.
+ */
+const CONTACT_FIELDS = [
+  {
+    key: "contact_info.email",
+    label: "البريد الرسمي",
+    placeholder: "hello@pure-table.example",
+    type: "email" as const,
+    help: "يظهر كأيقونة Mail في الفوتر، وأيضاً كرابط في قسم «تواصل».",
+  },
+  {
+    key: "contact_info.phone",
+    label: "رقم الهاتف",
+    placeholder: "05xxxxxxxx أو +9665xxxxxxxx",
+    type: "tel" as const,
+    help: "يظهر كنص قابل للضغط في قسم «تواصل» تحت الأيقونات.",
+  },
+  {
+    key: "contact_info.instagram",
+    label: "Instagram",
+    placeholder: "@pure_table أو رابط كامل",
+    type: "text" as const,
+    help: "يظهر كأيقونة Instagram في الفوتر.",
+  },
+  {
+    key: "contact_info.tiktok",
+    label: "TikTok",
+    placeholder: "@pure_table أو رابط كامل",
+    type: "text" as const,
+    help: "يظهر كأيقونة TikTok في الفوتر.",
+  },
+  {
+    key: "contact_info.whatsapp",
+    label: "WhatsApp",
+    placeholder: "05xxxxxxxx أو wa.me/9665xxxxxxxx",
+    type: "text" as const,
+    help: "يظهر كأيقونة WhatsApp في الفوتر.",
+  },
 ] as const;
 
 function AppearancePage() {
@@ -147,6 +191,7 @@ function AppearancePage() {
       const content = { ...current.content };
       for (const field of WELCOME_FIELDS) delete content[field.key];
       for (const field of LEGAL_FIELDS) delete content[field.key];
+      for (const field of CONTACT_FIELDS) delete content[field.key];
       const media = { ...current.layout.media };
       delete media.logo;
       delete media.hero;
@@ -213,7 +258,7 @@ function AppearancePage() {
         <div>
           <h1 className="font-display text-2xl font-semibold">المظهر والهوية</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            التحكم بإطلاق الموقع والشعار والألوان وصورة الواجهة والنصوص الترحيبية والنصوص القانونية.
+            التحكم بإطلاق الموقع والشعار والألوان وصورة الواجهة والنصوص الترحيبية والنصوص القانونية وحسابات التواصل.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -398,6 +443,29 @@ function AppearancePage() {
               >
                 معاينة الصفحة كما يراها الزائر
               </a>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="التواصل والحسابات" icon={AtSign}>
+        <p className="text-sm text-muted-foreground">
+          الحسابات الرسمية وأرقام التواصل. أيقونات الفوتر (Instagram و TikTok و WhatsApp و Mail)
+          ورابط الهاتف تظهر فقط حين تكون القيمة مدخلة هنا. القيم الافتراضية فارغة — ما تكتب
+          شيء، ما يطلع شيء.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {CONTACT_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-1.5 rounded-2xl border border-border p-4">
+              <InputField
+                label={field.label}
+                dir="ltr"
+                type={field.type}
+                value={draft.content[field.key]?.ar ?? ""}
+                placeholder={field.placeholder}
+                onChange={(value) => setText(field.key, "ar", value)}
+              />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">{field.help}</p>
             </div>
           ))}
         </div>
@@ -680,6 +748,41 @@ function LongTextField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 font-mono text-sm leading-7 outline-none focus:border-primary"
+      />
+    </label>
+  );
+}
+
+/**
+ * Single-line input for short fields (contact handles, numbers, email).
+ * Renders <input dir="..." /> with the same visual language as TextField so
+ * the panel feels consistent.
+ */
+function InputField({
+  label,
+  value,
+  placeholder,
+  dir,
+  type = "text",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  dir: "rtl" | "ltr";
+  type?: "text" | "email" | "tel" | "url";
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <input
+        type={type}
+        dir={dir}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
       />
     </label>
   );
