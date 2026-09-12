@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ogImageMeta } from "@/lib/seo";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, CalendarCheck, Bike, ShoppingBag, Navigation, Sparkles } from "lucide-react";
+import { Search, Navigation, Sparkles } from "lucide-react";
 import heroImg from "@/assets/hero.jpg";
 import { Page } from "@/components/site/Layout";
 import { BusinessCard } from "@/components/site/BusinessCard";
@@ -84,7 +84,7 @@ function Home() {
 
   // Categories come from the shared filter registry (built-in + admin-created);
   // each one can be hidden from the dashboard.
-  const { visible: categories } = useFilters();
+  const { main: mainCategories, secondary: categories } = useFilters();
   const groups = categoryPreviews(businesses, categories);
 
   function findNearby() {
@@ -92,7 +92,6 @@ function Home() {
     navigate({ to: "/search", search: { near: true } });
   }
 
-  const cards = layout.cards.filter((c) => c.visible !== false);
   const heroImage = layout.media["hero"] || heroImg;
 
   /* Each homepage section is rendered by key so the admin can reorder them. */
@@ -167,35 +166,33 @@ function Home() {
     home_quick_actions: () => (
       <section key="quick" className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {cards.map((c) => {
-            const isNear = c.href === "#near-me";
-            const Icon = CARD_ICONS[c.id] ?? Sparkles;
+          {mainCategories.map((category) => {
+            const isNear = category.behavior === "nearby";
+            const Icon = category.icon;
             const inner = (
               <>
                 <span className="grid h-14 w-14 place-items-center overflow-hidden rounded-2xl bg-primary-soft text-primary">
-                  {c.image ? (
-                    <img src={c.image} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <Icon className="h-6 w-6" />
-                  )}
+                  <Icon className="h-6 w-6" />
                 </span>
                 <span className="font-display text-sm font-semibold leading-tight">
-                  {loc(c.title)}
+                  {category.label}
                 </span>
-                <span className="text-[11px] text-muted-foreground">{loc(c.sub)}</span>
+                {category.description && (
+                  <span className="text-[11px] text-muted-foreground">{category.description}</span>
+                )}
               </>
             );
             const cls =
               "flex flex-col items-center gap-2 rounded-3xl border border-border bg-card p-5 text-center shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-primary/40";
             return isNear ? (
-              <button key={c.id} type="button" onClick={findNearby} className={cls}>
+              <button key={category.id} type="button" onClick={findNearby} className={cls}>
                 {inner}
               </button>
             ) : (
               <a
-                key={c.id}
-                href={c.href}
-                onClick={() => track({ event_type: "filter", label: c.id })}
+                key={category.id}
+                href={category.path}
+                onClick={() => track({ event_type: "filter", label: category.value })}
                 className={cls}
               >
                 {inner}
@@ -387,11 +384,3 @@ function Home() {
     </Page>
   );
 }
-
-const CARD_ICONS: Record<string, typeof CalendarCheck> = {
-  book: CalendarCheck,
-  delivery: Bike,
-  pickup: ShoppingBag,
-  near: Navigation,
-  featured: Sparkles,
-};

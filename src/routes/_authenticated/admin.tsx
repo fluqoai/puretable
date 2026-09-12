@@ -15,6 +15,7 @@ import {
   ExternalLink,
   KeyRound,
   Award,
+  Tags,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -34,6 +35,7 @@ const groups = [
     links: [
       { to: "/admin", label: "نظرة عامة وتحليلات", icon: LayoutDashboard, exact: true },
       { to: "/admin/businesses", label: "الأعمال والفروع", icon: Store, exact: false },
+      { to: "/admin/categories", label: "التصنيفات", icon: Tags, exact: false },
       { to: "/admin/subscriptions", label: "الاشتراكات والباقات", icon: Layers, exact: false },
       { to: "/admin/success-partners", label: "شركاء النجاح", icon: Award, exact: false },
     ],

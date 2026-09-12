@@ -88,7 +88,7 @@ export function SiteHeader() {
 export function SiteFooter() {
   const { t } = useTranslation();
   const { text } = useSiteText();
-  const { visible: cats } = useFilters();
+  const { secondary: cats } = useFilters();
   const email = text("contact_info.email");
   const phone = text("contact_info.phone");
   // Pure Table's official accounts, edited centrally in Admin → Appearance.

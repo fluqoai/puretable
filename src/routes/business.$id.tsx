@@ -24,6 +24,7 @@ import { useMemo, useState } from "react";
 import { BranchesMap } from "@/components/site/BranchesMap";
 import { distanceKm, hasCategory } from "@/data/businesses";
 import { SERVICE_DEFS } from "@/lib/services";
+import { useFilters } from "@/lib/filters";
 import { SafetyNote } from "@/components/site/SafetyBadge";
 import { FavoriteButton } from "@/components/site/FavoriteButton";
 import { CoverImage } from "@/components/site/CoverImage";
@@ -162,6 +163,7 @@ function BusinessDetail() {
   });
   const { t } = useTranslation();
   const { lang } = useLanguage();
+  const { secondary: categoryFilters } = useFilters();
   // Site-wide order of the action boxes, editable from Appearance.
   const { layout: siteLayout } = useSiteText();
   const actionOrder = siteLayout.actions;
@@ -186,10 +188,8 @@ function BusinessDetail() {
   const address = b.address_i18n?.[lang] ?? b.address;
   const products = b.products_i18n?.[lang] ?? b.products;
   const description = b.description_i18n?.[lang] ?? b.description;
-  const CATEGORY_LABEL_KEY: Record<string, string> = {
-    home: "home_businesses",
-  };
-  const categoryLabel = t(`nav.${CATEGORY_LABEL_KEY[b.category] ?? b.category + "s"}`);
+  const categoryLabel =
+    categoryFilters.find((category) => category.value === b.category)?.label ?? b.category;
   const whatsappMessage = pureTableWhatsAppMessage(lang);
   const discountCode = b.discountCode;
 

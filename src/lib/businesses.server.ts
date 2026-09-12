@@ -11,7 +11,7 @@ import {
   type OpeningHours,
 } from "@/data/businesses";
 
-function publicClient() {
+export function publicClient() {
   const url = process.env["SUPABASE_URL"];
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key) throw new Error("Public database configuration is unavailable");
@@ -114,9 +114,14 @@ export async function fetchPublicBusinesses(): Promise<Business[]> {
     current.push(mapBranch(branch, byBranch.get(branch.id) ?? []));
     branchesByBusiness.set(branch.business_id, current);
   }
-  return (rows ?? []).map((row) =>
-    ({ ...mapDbBusiness(row as never, byBusiness.get(row.id) ?? [], branchesByBusiness.get(row.id) ?? []), entitlements: toFeatures(catalog[planOf(row)]) }),
-  );
+  return (rows ?? []).map((row) => ({
+    ...mapDbBusiness(
+      row as never,
+      byBusiness.get(row.id) ?? [],
+      branchesByBusiness.get(row.id) ?? [],
+    ),
+    entitlements: toFeatures(catalog[planOf(row)]),
+  }));
 }
 
 export async function fetchPublicBusinessBySlug(slug: string): Promise<Business | null> {

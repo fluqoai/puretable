@@ -18,9 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker } from "@/components/admin/LocationPicker";
 import { BranchEditor } from "@/components/admin/BranchEditor";
 import { MAIN_CITIES, findCity, regionForCity } from "@/lib/saudi";
-import { CATEGORY_DEFS } from "@/lib/categories";
-import { useFilters } from "@/lib/filters";
-import { SERVICE_DEFS, isServiceValue } from "@/lib/services";
+import { adminListPlaceCategories } from "@/lib/category.functions";
 
 import { logAudit } from "@/lib/audit";
 import { getBusinessReport } from "@/lib/analytics.dashboard.functions";
@@ -43,12 +41,7 @@ export const Route = createFileRoute("/_authenticated/admin/businesses/$id")({
   component: EditBusiness,
 });
 
-import {
-  PLAN_FEATURES,
-  PLAN_LABELS,
-  PLAN_TIERS,
-  type PlanTier,
-} from "@/lib/plans";
+import { PLAN_FEATURES, PLAN_LABELS, PLAN_TIERS, type PlanTier } from "@/lib/plans";
 
 const DEFAULT_HOURS = { sun: "", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "" };
 const DEFAULT_FORM = {
@@ -91,21 +84,8 @@ const DEFAULT_FORM = {
   photos: [] as string[],
 };
 
-
 /** Default visitor-facing text for the orange (shared kitchen) dot — editable per business. */
 const DEFAULT_SHARED_NOTE = "مطبخ مشترك لكن المطبخ والأدوات مفصولة";
-
-/** Arabic labels for the shared filter registry, so new filters appear here too. */
-const CATEGORY_LABELS: Record<string, string> = {
-  restaurant: "مطاعم / Restaurants",
-  fine_dining: "مطاعم راقية / Fine dining",
-  delivery: "توصيل / Delivery",
-  cafe: "مقاهي / Cafes",
-  bakery: "مخابز / Bakeries",
-  dessert: "حلويات / Desserts",
-  home: "أسر منتجة / Home businesses",
-  supermarket: "سوبرماركت / Supermarkets",
-};
 
 const PLATFORMS = [
   "hungerstation",
@@ -138,7 +118,8 @@ const DAYS = [
 
 function EditBusiness() {
   const { data: planCatalog } = usePlanDefinitions();
-  const planFeatures = (tier: PlanTier) => planCatalog ? toFeatures(planCatalog[tier]) : PLAN_FEATURES[tier];
+  const planFeatures = (tier: PlanTier) =>
+    planCatalog ? toFeatures(planCatalog[tier]) : PLAN_FEATURES[tier];
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -151,23 +132,18 @@ function EditBusiness() {
   const saveBranch = useServerFn(upsertBranch);
   const removeBranch = useServerFn(deleteBranch);
   const signUpload = useServerFn(signCoverUploadUrl);
-  // Built-in filters plus any filter the admin created from Appearance.
-  const { all: allFilters } = useFilters();
-  const categoryOptions = allFilters.map(
-    (f) =>
-      [f.value, f.custom ? f.label : (CATEGORY_LABELS[f.value] ?? f.label), f.primary] as [
-        string,
-        string,
-        boolean,
-      ],
+  const loadCategories = useServerFn(adminListPlaceCategories);
+  const { data: categoryCatalog = [] } = useQuery({
+    queryKey: ["admin-place-categories"],
+    queryFn: () => loadCategories(),
+  });
+  const mainOptions = categoryCatalog.filter(
+    (category) => category.level === "main" && !["featured", "nearby"].includes(category.behavior),
   );
-  // Main categories = how the place is used (book / delivery / pickup).
-  // Secondary categories = what the place is (restaurant, cafe, …) plus any
-  // filter the admin created. Both allow multiple selections.
-  const mainOptions = SERVICE_DEFS.map((s) => [s.value, `${s.ar} / ${s.en}`] as [string, string]);
-  const secondaryOptions = categoryOptions
-    .filter(([value]) => !isServiceValue(value))
-    .map(([value, label]) => [value, label] as [string, string]);
+  const automaticMain = categoryCatalog.filter(
+    (category) => category.level === "main" && ["featured", "nearby"].includes(category.behavior),
+  );
+  const secondaryOptions = categoryCatalog.filter((category) => category.level === "sub");
 
   const { data: existing } = useQuery({
     queryKey: ["admin-business", id],
@@ -191,6 +167,15 @@ function EditBusiness() {
       setForm({
         ...DEFAULT_FORM,
         ...existing,
+        categories: [
+          ...new Set(
+            [
+              existing.category,
+              ...(((existing as any).categories ?? []) as string[]),
+              ...(existing.offers_booking ? ["svc_dine_in"] : []),
+            ].filter(Boolean),
+          ),
+        ],
         cities: ((existing as any).cities ?? []) as string[],
         photos: ((existing as any).photos ?? []) as string[],
         hours: { ...DEFAULT_HOURS, ...(existing.hours as object) },
@@ -219,18 +204,20 @@ function EditBusiness() {
     setForm((f: any) => ({ ...f, [k]: v }));
   }
 
-  /**
-   * Tick / untick a filter. At least one type category always stays selected,
-   * and the primary `category` column only ever holds a type value — service
-   * tags (svc_*) live alongside it in the array.
-   */
-  function toggleCategory(cat: string) {
+  /** Main and sub choices share one compatibility array; `category` keeps the first sub choice. */
+  function toggleCategory(cat: string, level: "main" | "sub", behavior: string) {
     setForm((f: any) => {
       const current = [...new Set<string>([f.category, ...(f.categories ?? [])].filter(Boolean))];
       const next = current.includes(cat) ? current.filter((c) => c !== cat) : [...current, cat];
-      const types = next.filter((c) => !isServiceValue(c));
-      if (types.length === 0) return f;
-      return { ...f, category: types[0], categories: next };
+      const subValues = new Set(secondaryOptions.map((category) => category.value));
+      const subs = next.filter((value) => subValues.has(value));
+      if (level === "sub" && subs.length === 0) return f;
+      return {
+        ...f,
+        category: subs[0] ?? f.category,
+        categories: next,
+        offers_booking: behavior === "booking" ? next.includes(cat) : f.offers_booking,
+      };
     });
   }
 
@@ -255,18 +242,30 @@ function EditBusiness() {
 
   /** Save, either as a hidden draft or published to the public site. */
   async function submit(publish: boolean) {
-    if (publish && !existing?.published && !window.confirm("هل حصلت على موافقة المحل؟ بالنشر سيظهر للزوار في قسمه والبحث.")) return;
+    if (
+      publish &&
+      !existing?.published &&
+      !window.confirm("هل حصلت على موافقة المحل؟ بالنشر سيظهر للزوار في قسمه والبحث.")
+    )
+      return;
     setSaving(true);
     setErr(null);
     setSavedMessage(null);
     try {
-      if (!form.category || isServiceValue(form.category)) {
-        throw new Error("اختر نوع المكان قبل الحفظ: مطعم، مقهى، مخبز أو نوع آخر.");
+      const subValues = new Set(secondaryOptions.map((category) => category.value));
+      const selectedSubs = selectedCategories.filter((value) => subValues.has(value));
+      if (selectedSubs.length === 0) {
+        throw new Error("اختر تصنيفًا فرعيًا واحدًا على الأقل قبل الحفظ.");
       }
       const payload = { ...form };
       payload.published = publish;
       payload.region = regionKey;
+      payload.category = selectedSubs[0];
       payload.categories = selectedCategories;
+      payload.offers_booking = mainOptions.some(
+        (category) =>
+          category.behavior === "booking" && selectedCategories.includes(category.value),
+      );
       payload.cities = selectedCities;
       payload.dedicated_gf = payload.safety === "green";
       if (payload.no_location) {
@@ -425,8 +424,6 @@ function EditBusiness() {
         }}
         className="space-y-6"
       >
-
-
         <Section title="Cover photo">
           {form.cover_url ? (
             <img src={form.cover_url} alt="" className="mb-3 h-40 w-full rounded-xl object-cover" />
@@ -534,60 +531,50 @@ function EditBusiness() {
               onChange={(v) => up("slug", v.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))}
             />
 
-            <label className="col-span-full grid gap-2 text-sm font-medium">
-              نوع المكان الأساسي / Place type *
-              <select required value={form.category} onChange={(event) => {
-                const category = event.target.value;
-                setForm((previous: typeof form) => ({ ...previous, category, categories: [...new Set([category, ...(previous.categories ?? []).filter((value: string) => value !== previous.category)].filter(Boolean))] }));
-              }} className="rounded-xl border border-border bg-card px-3 py-3">
-                <option value="" disabled>اختر نوع المكان / Choose a type</option>
-                {secondaryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                {form.category && !secondaryOptions.some(([value]) => value === form.category) && <option value={form.category}>{form.category}</option>}
-              </select>
-              <span className="text-xs font-normal text-muted-foreground">يحدد القسم الذي يظهر فيه المكان في الدليل. يمكنك إضافة أنواع أخرى أدناه إذا كان المكان يجمع أكثر من نشاط.</span>
-            </label>
-            {/* Extra types and service tags remain separate from the primary type. */}
-            <div className="col-span-full space-y-4">
-              <div className="text-xs text-muted-foreground">
-                التصنيفات الإضافية اختيارية، وخدمات الطلب لا تغيّر نوع المكان.
-              </div>
-              {(
-                [
-                  [
-                    "خدمات الطلب / Services",
-                    "طريقة الطلب: حجز طاولة، توصيل، استلام",
-                    mainOptions,
-                  ],
-                  [
-                    "أنواع إضافية / Additional types",
-                    "اختياري: مثلاً مخبز يقدم أيضاً مقهى",
-                    secondaryOptions.filter(([value]) => value !== form.category),
-                  ],
-                ] as [string, string, [string, string][]][]
-              ).map(([groupLabel, hint, options]) =>
-                options.length === 0 ? null : (
-                  <div key={groupLabel} className="space-y-2">
-                    <div className="text-sm font-medium">{groupLabel}</div>
-                    <div className="text-xs text-muted-foreground">{hint}</div>
-                    <div className="flex flex-wrap gap-2">
-                      {options.map(([value, label]) => {
-                        const on = selectedCategories.includes(value);
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => toggleCategory(value)}
-                            aria-pressed={on}
-                            className={`rounded-full border px-3 py-1.5 text-xs font-medium ${on ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground"}`}
-                          >
-                            {on ? "✓ " : "+ "}
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
+            <div className="col-span-full grid gap-5 rounded-2xl border border-border p-4">
+              {[
+                {
+                  title: "التصنيفات الرئيسية / Main categories",
+                  hint: "اختر طريقة ظهور المشروع في الخيارات الكبيرة أعلى الصفحة.",
+                  level: "main" as const,
+                  options: mainOptions,
+                },
+                {
+                  title: "التصنيفات الفرعية / Subcategories *",
+                  hint: "اختر نوعًا واحدًا على الأقل، ويمكن اختيار أكثر من نوع.",
+                  level: "sub" as const,
+                  options: secondaryOptions,
+                },
+              ].map((group) => (
+                <div key={group.level} className="space-y-2">
+                  <div className="text-sm font-semibold">{group.title}</div>
+                  <div className="text-xs text-muted-foreground">{group.hint}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {group.options.map((category) => {
+                      const on = selectedCategories.includes(category.value);
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() =>
+                            toggleCategory(category.value, group.level, category.behavior)
+                          }
+                          aria-pressed={on}
+                          className={`rounded-full border px-3 py-2 text-xs font-medium ${on ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                        >
+                          {on ? "✓ " : "+ "}
+                          {category.name_ar} / {category.name_en}
+                        </button>
+                      );
+                    })}
                   </div>
-                ),
+                </div>
+              ))}
+              {automaticMain.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  تلقائيًا: {automaticMain.map((category) => category.name_ar).join("، ")}؛ تُحدد
+                  حسب الموقع أو الباقة ولا تحتاج اختيارًا هنا.
+                </p>
               )}
             </div>
 
@@ -700,15 +687,37 @@ function EditBusiness() {
         </Section>
 
         <Section title="الباقة / Subscription plan">
-          {isNew ? <>
-            <label className="grid gap-2 text-sm">الباقة عند إنشاء العمل
-              <select value={selectedPlan} onChange={(event) => up("plan", event.target.value)} className="rounded-lg border bg-background p-3">
-                {PLAN_TIERS.map((tier) => <option key={tier} value={tier}>{PLAN_LABELS[tier]}</option>)}
-              </select>
-            </label>
-            <p className="mt-2 text-xs text-muted-foreground">{planSummary(planFeatures(selectedPlan))}</p>
-          </> : <BusinessPlanControl businessId={id} name={form.name} currentPlan={existing?.plan ?? selectedPlan}
-            onChanged={(tier) => { up("plan", tier); void qc.invalidateQueries({ queryKey: ["admin-business", id] }); }} />}
+          {isNew ? (
+            <>
+              <label className="grid gap-2 text-sm">
+                الباقة عند إنشاء العمل
+                <select
+                  value={selectedPlan}
+                  onChange={(event) => up("plan", event.target.value)}
+                  className="rounded-lg border bg-background p-3"
+                >
+                  {PLAN_TIERS.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {PLAN_LABELS[tier]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {planSummary(planFeatures(selectedPlan))}
+              </p>
+            </>
+          ) : (
+            <BusinessPlanControl
+              businessId={id}
+              name={form.name}
+              currentPlan={existing?.plan ?? selectedPlan}
+              onChanged={(tier) => {
+                up("plan", tier);
+                void qc.invalidateQueries({ queryKey: ["admin-business", id] });
+              }}
+            />
+          )}
         </Section>
 
         {!isNew && <BusinessPerformance businessId={id} name={form.name} plan={selectedPlan} />}
@@ -718,8 +727,8 @@ function EditBusiness() {
         <Section title="Action buttons (order & contact links)">
           <p className="text-xs text-muted-foreground">
             Paste the exact product URL from each platform. Each click is tracked before
-            redirecting. Auto-generated buttons (Call, Instagram, Directions) don't need to be
-            added here.
+            redirecting. Auto-generated buttons (Call, Instagram, Directions) don't need to be added
+            here.
           </p>
           <LinksEditor
             businessId={id}
@@ -739,20 +748,6 @@ function EditBusiness() {
 
       <Section title="Contact & location">
         <Grid>
-          <label className="col-span-full flex items-start gap-2 rounded-xl border border-border p-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={!!form.offers_booking}
-              onChange={(e) => up("offers_booking", e.target.checked)}
-            />
-            <span>
-              <span className="block font-medium">يوفر خدمة حجز الطاولات</span>
-              <span className="block text-xs text-muted-foreground">
-                عند التفعيل يظهر النشاط في فلتر «احجز طاولتك» مهما كانت طريقة الحجز.
-              </span>
-            </span>
-          </label>
           <Input
             label="كود الخصم النشط (اختياري) / Active discount code"
             value={form.discount_code ?? ""}
@@ -821,7 +816,11 @@ function EditBusiness() {
 
       {!isNew && (
         <Section title="الفروع / Branches">
-          <BranchEditor businessId={id} city={form.city} existing={branches} plan={selectedPlan}
+          <BranchEditor
+            businessId={id}
+            city={form.city}
+            existing={branches}
+            plan={selectedPlan}
             onSave={async (row) => {
               await saveBranch({ data: row });
               await qc.invalidateQueries({ queryKey: ["admin-business", id] });
@@ -862,7 +861,10 @@ function EditBusiness() {
           type="button"
           disabled={saving}
           onClick={() => {
-            if (!form.published || window.confirm("سيتم إخفاء هذا المشروع عن الموقع وحفظه كمسودة. متأكد؟"))
+            if (
+              !form.published ||
+              window.confirm("سيتم إخفاء هذا المشروع عن الموقع وحفظه كمسودة. متأكد؟")
+            )
               void submit(false);
           }}
           className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium shadow-[var(--shadow-soft)] disabled:opacity-70"

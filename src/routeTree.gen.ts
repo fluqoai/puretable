@@ -47,6 +47,7 @@ import { Route as AuthenticatedAdminSubscriptionsRouteImport } from './routes/_a
 import { Route as AuthenticatedAdminMessagesRouteImport } from './routes/_authenticated/admin.messages'
 import { Route as AuthenticatedAdminLeadsRouteImport } from './routes/_authenticated/admin.leads'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
+import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/admin.categories'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as AuthenticatedAdminAppearanceRouteImport } from './routes/_authenticated/admin.appearance'
 import { Route as AuthenticatedAdminAccountRouteImport } from './routes/_authenticated/admin.account'
@@ -247,6 +248,12 @@ const AuthenticatedAdminImportRoute =
     path: '/import',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminCategoriesRoute =
+  AuthenticatedAdminCategoriesRouteImport.update({
+    id: '/categories',
+    path: '/categories',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -313,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/admin/account': typeof AuthenticatedAdminAccountRoute
   '/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
@@ -357,6 +365,7 @@ export interface FileRoutesByTo {
   '/admin/account': typeof AuthenticatedAdminAccountRoute
   '/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/admin/messages': typeof AuthenticatedAdminMessagesRoute
@@ -404,6 +413,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/account': typeof AuthenticatedAdminAccountRoute
   '/_authenticated/admin/appearance': typeof AuthenticatedAdminAppearanceRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/_authenticated/admin/categories': typeof AuthenticatedAdminCategoriesRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/admin/leads': typeof AuthenticatedAdminLeadsRoute
   '/_authenticated/admin/messages': typeof AuthenticatedAdminMessagesRoute
@@ -451,6 +461,7 @@ export interface FileRouteTypes {
     | '/admin/account'
     | '/admin/appearance'
     | '/admin/audit'
+    | '/admin/categories'
     | '/admin/import'
     | '/admin/leads'
     | '/admin/messages'
@@ -495,6 +506,7 @@ export interface FileRouteTypes {
     | '/admin/account'
     | '/admin/appearance'
     | '/admin/audit'
+    | '/admin/categories'
     | '/admin/import'
     | '/admin/leads'
     | '/admin/messages'
@@ -541,6 +553,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/account'
     | '/_authenticated/admin/appearance'
     | '/_authenticated/admin/audit'
+    | '/_authenticated/admin/categories'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/leads'
     | '/_authenticated/admin/messages'
@@ -858,6 +871,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminImportRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/categories': {
+      id: '/_authenticated/admin/categories'
+      path: '/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AuthenticatedAdminCategoriesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/audit': {
       id: '/_authenticated/admin/audit'
       path: '/audit'
@@ -907,6 +927,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAccountRoute: typeof AuthenticatedAdminAccountRoute
   AuthenticatedAdminAppearanceRoute: typeof AuthenticatedAdminAppearanceRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
+  AuthenticatedAdminCategoriesRoute: typeof AuthenticatedAdminCategoriesRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
   AuthenticatedAdminLeadsRoute: typeof AuthenticatedAdminLeadsRoute
   AuthenticatedAdminMessagesRoute: typeof AuthenticatedAdminMessagesRoute
@@ -921,6 +942,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAccountRoute: AuthenticatedAdminAccountRoute,
   AuthenticatedAdminAppearanceRoute: AuthenticatedAdminAppearanceRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
+  AuthenticatedAdminCategoriesRoute: AuthenticatedAdminCategoriesRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
   AuthenticatedAdminLeadsRoute: AuthenticatedAdminLeadsRoute,
   AuthenticatedAdminMessagesRoute: AuthenticatedAdminMessagesRoute,

@@ -561,6 +561,57 @@ export type Database = {
           },
         ];
       };
+      place_categories: {
+        Row: {
+          behavior: string;
+          created_at: string;
+          description_ar: string;
+          description_en: string;
+          icon: string;
+          id: string;
+          level: string;
+          name_ar: string;
+          name_en: string;
+          slug: string;
+          sort_order: number;
+          updated_at: string;
+          value: string;
+          visible: boolean;
+        };
+        Insert: {
+          behavior?: string;
+          created_at?: string;
+          description_ar?: string;
+          description_en?: string;
+          icon?: string;
+          id?: string;
+          level: string;
+          name_ar: string;
+          name_en: string;
+          slug: string;
+          sort_order?: number;
+          updated_at?: string;
+          value: string;
+          visible?: boolean;
+        };
+        Update: {
+          behavior?: string;
+          created_at?: string;
+          description_ar?: string;
+          description_en?: string;
+          icon?: string;
+          id?: string;
+          level?: string;
+          name_ar?: string;
+          name_en?: string;
+          slug?: string;
+          sort_order?: number;
+          updated_at?: string;
+          value?: string;
+          visible?: boolean;
+        };
+        Relationships: [];
+      };
       partner_leads: {
         Row: {
           business_name: string;

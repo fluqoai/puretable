@@ -51,7 +51,7 @@ export function CategoryPage({
 }) {
   const { t } = useTranslation();
   const { lang } = useLanguage();
-  const { visible: filterEntries } = useFilters();
+  const { secondary: filterEntries } = useFilters();
   const [query, setQuery] = useState(initialQuery);
   const deferredQuery = useDeferredValue(query);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
