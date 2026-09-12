@@ -10,6 +10,7 @@ import {
   Palette,
   RotateCcw,
   Save,
+  ScrollText,
   Upload,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,16 @@ const WELCOME_FIELDS = [
   { key: "home.title_1", label: "العنوان الرئيسي — السطر الأول" },
   { key: "home.title_2", label: "العنوان الرئيسي — السطر الملوّن" },
   { key: "home.subtitle", label: "النص الترحيبي" },
+] as const;
+
+/**
+ * Long-form legal text shown on /privacy and /terms. Edited from
+ * the admin so the page copy stays in sync with what lawyers sign off on.
+ * Line breaks in the body are preserved by `whitespace-pre-line` in LegalPage.
+ */
+const LEGAL_FIELDS = [
+  { key: "legal.privacy_body", label: "نص سياسة الخصوصية" },
+  { key: "legal.terms_body", label: "نص الشروط والأحكام" },
 ] as const;
 
 function AppearancePage() {
@@ -135,6 +146,7 @@ function AppearancePage() {
     setDraft((current) => {
       const content = { ...current.content };
       for (const field of WELCOME_FIELDS) delete content[field.key];
+      for (const field of LEGAL_FIELDS) delete content[field.key];
       const media = { ...current.layout.media };
       delete media.logo;
       delete media.hero;
@@ -201,7 +213,7 @@ function AppearancePage() {
         <div>
           <h1 className="font-display text-2xl font-semibold">المظهر والهوية</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            التحكم بإطلاق الموقع والشعار والألوان وصورة الواجهة والنصوص الترحيبية.
+            التحكم بإطلاق الموقع والشعار والألوان وصورة الواجهة والنصوص الترحيبية والنصوص القانونية.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -345,6 +357,47 @@ function AppearancePage() {
                   onChange={(value) => setText(field.key, "en", value)}
                 />
               </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="النصوص القانونية" icon={ScrollText}>
+        <p className="text-sm text-muted-foreground">
+          محتوى صفحتي «سياسة الخصوصية» و«الشروط والأحكام». النص الافتراضي موجود في
+          ملفات الترجمة — اكتب فوقه ثم اضغط «حفظ ونشر» ليتحدّث ما يراه الزائر فوراً.
+          الفراغات بين الفقرات والسطور تُحفظ كما هي.
+        </p>
+        <div className="space-y-5">
+          {LEGAL_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-3 rounded-2xl border border-border p-4">
+              <h3 className="text-sm font-semibold">{field.label}</h3>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <LongTextField
+                  label="العربية"
+                  dir="rtl"
+                  rows={14}
+                  value={draft.content[field.key]?.ar ?? ""}
+                  placeholder={DEFAULT_TEXT.ar[field.key] ?? ""}
+                  onChange={(value) => setText(field.key, "ar", value)}
+                />
+                <LongTextField
+                  label="English"
+                  dir="ltr"
+                  rows={14}
+                  value={draft.content[field.key]?.en ?? ""}
+                  placeholder={DEFAULT_TEXT.en[field.key] ?? ""}
+                  onChange={(value) => setText(field.key, "en", value)}
+                />
+              </div>
+              <a
+                href={field.key === "legal.privacy_body" ? "/privacy" : "/terms"}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+              >
+                معاينة الصفحة كما يراها الزائر
+              </a>
             </div>
           ))}
         </div>
@@ -592,6 +645,41 @@ function TextField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+      />
+    </label>
+  );
+}
+
+/**
+ * Larger textarea for legal body content. Plain line breaks render on the
+ * public page (whitespace-pre-line in LegalPage), so authors can write
+ * naturally with blank lines between sections.
+ */
+function LongTextField({
+  label,
+  value,
+  placeholder,
+  dir,
+  rows = 12,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  dir: "rtl" | "ltr";
+  rows?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <textarea
+        rows={rows}
+        dir={dir}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 font-mono text-sm leading-7 outline-none focus:border-primary"
       />
     </label>
   );
